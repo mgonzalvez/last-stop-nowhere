@@ -39,9 +39,13 @@ Step sequence: `PLAN.md` (Chunks 1–14).
   Environment note): sync scene.start in create() for transitions,
   update-tick-based hooks (≤ ~150 ticks) for in-scene checks.
 - Docs: README.md (run + controls), CHANGELOG.md (per-chunk history),
-  PLAN.md (chunk plan).
-- Next (Milestone 2+, not started): zombies. Nothing else is planned yet —
-  see project_plan.md.
+  PLAN.md (chunk plan — now includes Milestone 2).
+- Pushed to github.com/mgonzalvez/last-stop-nowhere (main).
+- **Milestone 2 — "Dead Stock" — PLANNED, NOT STARTED.** PLAN.md has chunks
+  C15–C24: zombie entity/art, A* pathfinding, LOS+noise, FSM
+  (IDLE/WANDER → INVESTIGATE → CHASE → ATTACK), player health/death,
+  sprint, S.A.F.E. + debug. Design constants (speeds, ranges, timers, 8 Hz
+  decisions, seeded RNG) are fixed in PLAN.md — follow them. Start at C15.
 
 ## Environment note (read before touching rendering)
 
