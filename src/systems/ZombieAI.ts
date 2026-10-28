@@ -252,6 +252,12 @@ export function updateZombie(
   dt: number,
   ctx: ZombieContext,
 ): number {
+  if (z.staggerS > 0) {
+    // Hit-stagger (M4): frozen in place — no movement, no decisions, no
+    // attacks. The countdown runs off real time and resumes normally.
+    z.staggerS = Math.max(0, z.staggerS - dt)
+    return 0
+  }
   let damage = 0
   moveAlongPath(z, dt)
   z.decisionAccum += dt

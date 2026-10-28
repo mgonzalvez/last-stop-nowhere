@@ -6,6 +6,7 @@
  * ECS style); the seeded rng stream makes behavior reproducible.
  */
 import { mulberry32 } from '../systems/Rng'
+import { zombieHealth } from '../systems/CombatSystem'
 
 export type ZombieStateName = 'IDLE' | 'WANDER' | 'INVESTIGATE' | 'CHASE' | 'ATTACK'
 
@@ -16,6 +17,10 @@ export interface ZombieState {
   /** Screen px/s — always slower than the player (150). */
   speed: number
   state: ZombieStateName
+  /** Seeded combat health (M4); zombie dies at <= 0. */
+  health: number
+  /** Seconds of hit-stagger remaining (M4): frozen, no decisions. */
+  staggerS: number
   /** Per-zombie determinism seed. */
   seed: number
   /** Seeded PRNG stream for all AI decisions. */
@@ -52,6 +57,8 @@ export function createZombie(
     y,
     speed: ZOMBIE_SPEED,
     state: 'IDLE',
+    health: zombieHealth(id),
+    staggerS: 0,
     seed,
     rng,
     path: [],

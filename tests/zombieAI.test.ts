@@ -102,3 +102,41 @@ describe('zombie AI: IDLE/WANDER (C18)', () => {
     expect(visitedWood).toBe(true)
   })
 })
+
+describe('zombie AI: hit-stagger (C35)', () => {
+  it('is frozen while staggering: no movement, no damage, even in melee', () => {
+    const z = createZombie(0, ...ZOMBIE_SPAWNS[0], ZOMBIE_SEED)
+    const x0 = z.x
+    const y0 = z.y
+    z.staggerS = 0.4
+    const ctx: ZombieContext = {
+      playerX: z.x + 0.5, // within melee range (0.9)
+      playerY: z.y,
+      noiseRadius: 0,
+      casual: false,
+    }
+    let damage = 0
+    const frames = Math.ceil(0.4 / DT) + 1
+    for (let i = 0; i < frames; i++) damage += updateZombie(z, passable, DT, ctx)
+    expect(damage).toBe(0)
+    expect(z.staggerS).toBe(0)
+    expect(z.x).toBe(x0)
+    expect(z.y).toBe(y0)
+  })
+
+  it('resumes after the stagger ends and attacks from melee', () => {
+    const z = createZombie(0, ...ZOMBIE_SPAWNS[0], ZOMBIE_SEED)
+    z.staggerS = 0.4
+    const ctx: ZombieContext = {
+      playerX: z.x + 0.5,
+      playerY: z.y,
+      noiseRadius: 0,
+      casual: false,
+    }
+    let damage = 0
+    const frames = Math.ceil((0.4 + 2) / DT)
+    for (let i = 0; i < frames; i++) damage += updateZombie(z, passable, DT, ctx)
+    expect(z.state).toBe('ATTACK')
+    expect(damage).toBeGreaterThan(0)
+  })
+})

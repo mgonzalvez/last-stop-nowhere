@@ -1,6 +1,27 @@
 import { describe, it, expect } from 'vitest'
-import { heldWeapon, swingDamage, UNARMED_DAMAGE, GROOVY_DAMAGE_MULT } from '../src/systems/CombatSystem'
+import {
+  heldWeapon,
+  swingDamage,
+  UNARMED_DAMAGE,
+  GROOVY_DAMAGE_MULT,
+  zombieHealth,
+  pickAttackTarget,
+  applyHit,
+  HIT_STAGGER_S,
+  HIT_KNOCKBACK_TILES,
+  ATTACK_AIM_RADIUS,
+  ATTACK_REACH,
+  ZOMBIE_HEALTH_MIN,
+} from '../src/systems/CombatSystem'
+import { createZombie, type ZombieState } from '../src/world/Zombie'
+import { createPlayer } from '../src/world/Player'
 import { createInventory, add } from '../src/world/Inventory'
+import { ZOMBIE_SPAWNS } from '../src/data/zombieSpawns'
+
+/** A zombie at a fixed tile (deterministic seed). */
+function zombieAt(x: number, y: number, id = 0): ZombieState {
+  return createZombie(id, x, y, 42 + id)
+}
 
 describe('heldWeapon', () => {
   it('is null for an empty inventory', () => {
@@ -111,5 +132,101 @@ describe('weapon durability slots (Inventory, M4)', () => {
     expect(dropped).toBe(0)
     expect(inv[0]).toEqual({ itemId: 'canned_soup', qty: 10 })
     expect(inv[0]?.durability).toBeUndefined()
+  })
+})
+
+describe('zombieHealth (C35)', () => {
+  it('is deterministic per spawn id', () => {
+    for (let id = 0; id < 7; id++) {
+      expect(zombieHealth(id)).toBe(zombieHealth(id))
+    }
+  })
+
+  it('stays within 30-60 for every fixed spawn', () => {
+    for (let id = 0; id < ZOMBIE_SPAWNS.length; id++) {
+      const h = zombieHealth(id)
+      expect(h).toBeGreaterThanOrEqual(ZOMBIE_HEALTH_MIN)
+      expect(h).toBeLessThanOrEqual(60)
+    }
+  })
+
+  it('is seeded into createZombie with zero stagger', () => {
+    const z = createZombie(3, 10, 12, 999)
+    expect(z.health).toBe(zombieHealth(3))
+    expect(z.staggerS).toBe(0)
+  })
+})
+
+describe('pickAttackTarget (C35)', () => {
+  const player = createPlayer(10, 10)
+
+  it('is null with no zombies', () => {
+    expect(pickAttackTarget(player, [], 10, 10)).toBeNull()
+  })
+
+  it('rejects a zombie beyond the 1.5-tile reach even if clicked', () => {
+    const z = zombieAt(10, 10 + ATTACK_REACH + 0.5) // 2.0 tiles away
+    expect(pickAttackTarget(player, [z], z.x, z.y)).toBeNull()
+  })
+
+  it('rejects a zombie in reach but far from the click', () => {
+    const z = zombieAt(10 + ATTACK_REACH - 0.2, 10) // in reach, 1.3 from click
+    expect(pickAttackTarget(player, [z], 10, 10)).toBeNull()
+  })
+
+  it('hits a zombie inside both radii', () => {
+    const z = zombieAt(11, 10.5)
+    expect(pickAttackTarget(player, [z], 11, 10.5)).toBe(z)
+  })
+
+  it('gives the swing to the zombie closest to the click', () => {
+    const farFromClick = zombieAt(11, 10, 1) // 1.0 from click
+    const nearClick = zombieAt(10.6, 10, 2) // 0.6 from click, same reach
+    const t = pickAttackTarget(player, [farFromClick, nearClick], 10, 10)
+    expect(t?.id).toBe(2)
+  })
+})
+
+describe('applyHit (C35)', () => {
+  it('applies damage and a 0.4 s stagger', () => {
+    const z = zombieAt(11, 10)
+    const r = applyHit(z, 9, 10, 10)
+    expect(z.health).toBe(zombieHealth(0) - 9)
+    expect(z.staggerS).toBe(HIT_STAGGER_S)
+    expect(r.dead).toBe(false)
+    expect(r.health).toBe(z.health)
+  })
+
+  it('knocks back 0.5 tiles away from the attacker', () => {
+    const z = zombieAt(11, 10)
+    const r = applyHit(z, 9, 10, 10, () => true)
+    expect(z.x).toBeCloseTo(11 + HIT_KNOCKBACK_TILES)
+    expect(z.y).toBeCloseTo(10)
+    expect(r.knocked).toBe(true)
+  })
+
+  it('skips knockback when the target tile is impassable', () => {
+    const z = zombieAt(11, 10)
+    // knockback lands on tile (12, 10) — block exactly that
+    const r = applyHit(z, 9, 10, 10, (tx, ty) => !(tx === 12 && ty === 10))
+    expect(r.knocked).toBe(false)
+    expect(z.x).toBe(11)
+    expect(z.y).toBe(10)
+    expect(z.staggerS).toBe(HIT_STAGGER_S) // stagger still applies
+  })
+
+  it('kills at health <= 0', () => {
+    const z = zombieAt(11, 10)
+    const r = applyHit(z, 999, 10, 10)
+    expect(r.dead).toBe(true)
+    expect(r.health).toBeLessThanOrEqual(0)
+  })
+
+  it('handles an attacker standing on the zombie (no direction)', () => {
+    const z = zombieAt(11, 10)
+    const r = applyHit(z, 5, 11, 10)
+    expect(r.knocked).toBe(false)
+    expect(z.x).toBe(11)
+    expect(z.staggerS).toBe(HIT_STAGGER_S)
   })
 })
