@@ -479,8 +479,6 @@ mode` lands here in its pure form: `swingDamage(inv, groovy)` applies
 `GROOVY_DAMAGE_MULT = 2` to weapon damage only (unarmed stays 5). The G-key
 toggle + indicator + `?groovy` URL param are scene concerns → C36.
 
-  pure + tests).
-
 Add `damage`/`maxDurability` to the four weapon items + `isWeapon`.
 `Inventory`: slots carry `durability` for weapons (initialized on `add`;
 other items unaffected — existing inventory tests still pass with an
