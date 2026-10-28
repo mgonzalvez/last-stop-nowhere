@@ -10,6 +10,7 @@ import { moveWithCollision } from '../../systems/CollisionSystem'
 import { updateZombie, type ZombieContext } from '../../systems/ZombieAI'
 import { noiseRadius, NOISE_STILL } from '../../systems/Noise'
 import { tickSurvival } from '../../systems/StatsSystem'
+import { useHotbarSlot } from '../../systems/ItemUse'
 import { createInventory, type Inventory } from '../../world/Inventory'
 import { STARTING_ITEMS, getItem } from '../../data/items'
 import {
@@ -63,6 +64,8 @@ export class GameScene extends Phaser.Scene {
   private inventoryOpen = false
   private inventoryOverlay!: Phaser.GameObjects.Container
   private inventorySlotTexts: Phaser.GameObjects.Text[] = []
+  /** Milestone 3: hotbar keys 1-8. */
+  private hotbarKeys: Phaser.Input.Keyboard.Key[] = []
   private deathOverlay!: Phaser.GameObjects.Container
   private roofIndex!: BuildingIndex
   private roofByBuilding = new Map<number, Phaser.GameObjects.Image[]>()
@@ -111,6 +114,16 @@ export class GameScene extends Phaser.Scene {
     this.keys = this.input.keyboard!.addKeys(
       'W,A,S,D,R,T,C,F3,ESC,UP,DOWN,LEFT,RIGHT,SHIFT,I',
     ) as unknown as GameScene['keys']
+    this.hotbarKeys = [
+      Phaser.Input.Keyboard.KeyCodes.ONE,
+      Phaser.Input.Keyboard.KeyCodes.TWO,
+      Phaser.Input.Keyboard.KeyCodes.THREE,
+      Phaser.Input.Keyboard.KeyCodes.FOUR,
+      Phaser.Input.Keyboard.KeyCodes.FIVE,
+      Phaser.Input.Keyboard.KeyCodes.SIX,
+      Phaser.Input.Keyboard.KeyCodes.SEVEN,
+      Phaser.Input.Keyboard.KeyCodes.EIGHT,
+    ].map((code) => this.input.keyboard!.addKey(code))
 
     // Debug overlay (F3): FPS, tile coords, world pos, entity count, renderer.
     this.debugText = this.add
@@ -289,6 +302,13 @@ export class GameScene extends Phaser.Scene {
     if (this.paused) {
       if (Phaser.Input.Keyboard.JustDown(this.keys.R)) this.scene.restart()
       return
+    }
+    // Milestone 3: hotbar 1-8 uses a consumable (carry-only items stay put).
+    for (let i = 0; i < this.hotbarKeys.length; i++) {
+      if (Phaser.Input.Keyboard.JustDown(this.hotbarKeys[i])) {
+        this.useHotbar(i)
+        break
+      }
     }
     const sprinting = this.keys.SHIFT.isDown && !this.player.sprintExhausted
     const speed = this.player.speed * (sprinting ? SPRINT_MULT : 1)
@@ -478,6 +498,19 @@ export class GameScene extends Phaser.Scene {
       .container(0, 0, kids)
       .setDepth(2500)
       .setVisible(false)
+  }
+
+  /** Hotbar slot 1-8: consume one consumable, apply restores, S.A.F.E. note. */
+  private useHotbar(index: number): void {
+    const result = useHotbarSlot(this.inventory, this.player, index)
+    if (!result.consumed) return
+    this.player = result.player
+    this.updateHealthBar()
+    this.updateSurvivalBars(
+      this.player.hunger <= 0,
+      this.player.sprintExhausted,
+    )
+    if (result.event) this.showTutorial(deliver(this.tutorial, result.event))
   }
 
   private toggleInventory(open: boolean): void {
