@@ -41,11 +41,15 @@ Step sequence: `PLAN.md` (Chunks 1–14).
 - Docs: README.md (run + controls), CHANGELOG.md (per-chunk history),
   PLAN.md (chunk plan — now includes Milestone 2).
 - Pushed to github.com/mgonzalvez/last-stop-nowhere (main).
-- **Milestone 2 — "Dead Stock" — PLANNED, NOT STARTED.** PLAN.md has chunks
-  C15–C24: zombie entity/art, A* pathfinding, LOS+noise, FSM
-  (IDLE/WANDER → INVESTIGATE → CHASE → ATTACK), player health/death,
-  sprint, S.A.F.E. + debug. Design constants (speeds, ranges, timers, 8 Hz
-  decisions, seeded RNG) are fixed in PLAN.md — follow them. Start at C15.
+- **Milestone 2 — "Dead Stock"** — C15 done (zombie state, 7 fixed spawns,
+  procedural zombie texture, scene rendering with depth + per-seed tint,
+  casual mode: C key toggles threat-free flag + top-right indicator + debug
+  line; 61/61 tests, tsc/build clean, headless shows zombies).
+  Next: **C16 — A* pathfinding** (`src/systems/Pathfinding.ts`, pure,
+  4-directional, null when unreachable, step-capped).
+- TEMP hooks (remove ALL in C24): TitleScene `?autostart` (sync start in
+  create). More will be added for C18+ (movement/FSM verification) — keep
+  them tick-based and documented here as they land.
 
 ## Environment note (read before touching rendering)
 

@@ -3,6 +3,8 @@ import { worldMap, MAP_SIZE } from '../../world/WorldMap'
 import { TileType } from '../../world/TileTypes'
 import { setOrigin, tileToScreen, TILE_W, TILE_H } from '../../world/IsoProjection'
 import { createPlayer, type PlayerState } from '../../world/Player'
+import { createZombie, type ZombieState } from '../../world/Zombie'
+import { ZOMBIE_SPAWNS, ZOMBIE_SEED } from '../../data/zombieSpawns'
 import { type InputState } from '../../systems/MovementSystem'
 import { moveWithCollision } from '../../systems/CollisionSystem'
 import {
@@ -31,6 +33,11 @@ const ROOF_FADE_PER_SEC = 4
 export class GameScene extends Phaser.Scene {
   private player!: PlayerState
   private playerSprite!: Phaser.GameObjects.Image
+  /** Milestone 2: zombie entities + sprites (AI lands in C18+). */
+  private zombies: { z: ZombieState; sprite: Phaser.GameObjects.Image }[] = []
+  /** Casual mode: zombies never detect or attack (C toggles). */
+  private casual = false
+  private casualText!: Phaser.GameObjects.Text
   private roofIndex!: BuildingIndex
   private roofByBuilding = new Map<number, Phaser.GameObjects.Image[]>()
   /** Current roof alpha per building (0 hidden, 1 shown). */
@@ -48,6 +55,7 @@ export class GameScene extends Phaser.Scene {
     D: Phaser.Input.Keyboard.Key
     R: Phaser.Input.Keyboard.Key
     T: Phaser.Input.Keyboard.Key
+    C: Phaser.Input.Keyboard.Key
     F3: Phaser.Input.Keyboard.Key
     ESC: Phaser.Input.Keyboard.Key
     UP: Phaser.Input.Keyboard.Key
@@ -69,10 +77,11 @@ export class GameScene extends Phaser.Scene {
     this.drawRoofs()
 
     this.spawnPlayer()
+    this.createZombies()
     this.setupCamera()
     this.buildPauseOverlay()
     this.keys = this.input.keyboard!.addKeys(
-      'W,A,S,D,R,T,F3,ESC,UP,DOWN,LEFT,RIGHT',
+      'W,A,S,D,R,T,C,F3,ESC,UP,DOWN,LEFT,RIGHT',
     ) as unknown as GameScene['keys']
 
     // Debug overlay (F3): FPS, tile coords, world pos, entity count, renderer.
@@ -91,6 +100,44 @@ export class GameScene extends Phaser.Scene {
     this.tutorial = createTutorialState()
     // 'welcome' event fires once, on game start.
     this.showTutorial(deliver(this.tutorial, 'welcome'))
+
+    this.buildCasualIndicator()
+  }
+
+  /** Milestone 2: spawn the fixed zombie set (static until C18+). */
+  private createZombies(): void {
+    const tints = [0xe8f0e0, 0xf0ece0, 0xe0e8f0] // subtle per-zombie variance
+    ZOMBIE_SPAWNS.forEach(([x, y], i) => {
+      const z = createZombie(i, x, y, ZOMBIE_SEED + i)
+      const s = tileToScreen(z.x, z.y)
+      const sprite = this.add
+        .image(s.x, s.y + TILE_H / 2, TEX.zombie)
+        .setOrigin(0.5, 1)
+        .setDepth(depthFor(z.x, z.y))
+        .setTint(tints[z.seed % tints.length])
+      this.zombies.push({ z, sprite })
+    })
+  }
+
+  /** "CASUAL" indicator, pinned to the view top-right while casual mode is on. */
+  private buildCasualIndicator(): void {
+    this.casualText = this.add
+      .text(0, 0, 'CASUAL', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#d8c9a0',
+        backgroundColor: '#15171e',
+        padding: { x: 8, y: 4 },
+      })
+      .setOrigin(1, 0)
+      .setDepth(4000)
+      .setVisible(false)
+  }
+
+  /** C toggles casual mode: zombies never detect or attack the player. */
+  private toggleCasual(): void {
+    this.casual = !this.casual
+    this.casualText.setVisible(this.casual)
   }
 
   /** Pause overlay: dim + PAUSED text, frozen at the view center. */
@@ -170,6 +217,15 @@ export class GameScene extends Phaser.Scene {
       this.debugText.setVisible(this.debugVisible)
       this.updateDebug()
     }
+    // Casual mode (C) — works even while paused.
+    if (Phaser.Input.Keyboard.JustDown(this.keys.C)) this.toggleCasual()
+    if (this.casual) {
+      const cam = this.cameras.main
+      this.casualText.setPosition(
+        cam.scrollX + this.scale.width - 10,
+        cam.scrollY + 10,
+      )
+    }
     if (this.debugVisible) {
       this._dbgTick++
       if (this._dbgTick % 6 === 0) this.updateDebug() // ~10Hz text refresh
@@ -237,6 +293,7 @@ export class GameScene extends Phaser.Scene {
           entityCount: this.children.list.length,
           renderer:
             this.game.renderer.type === Phaser.WEBGL ? 'webgl' : 'canvas',
+          casual: this.casual,
         }),
       )
   }

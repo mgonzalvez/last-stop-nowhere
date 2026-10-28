@@ -20,6 +20,7 @@ export const TEX = {
   tree: 'tree',
   car: 'car',
   player: 'player',
+  zombie: 'zombie',
 } as const
 
 type G = Phaser.GameObjects.Graphics
@@ -162,6 +163,24 @@ export function createProceduralAssets(scene: Phaser.Scene): void {
     g.fillStyle(0x2c3e50)
     g.fillRect(9, 32, 6, 14); g.fillRect(17, 32, 6, 14) // legs
     g.generateTexture(TEX.player, 32, 48)
+
+    // --- zombie (32x48; anchor bottom-center) ---------------------------
+    g.clear()
+    g.fillStyle(0x000000, 0.3)
+    g.fillEllipse(16, 44, 20, 8) // shadow
+    g.fillStyle(0x3a4030)
+    g.fillRect(9, 32, 6, 14); g.fillRect(17, 32, 6, 14) // legs
+    g.fillStyle(0x55603c)
+    g.fillRect(8, 16, 16, 16) // tattered jacket
+    g.fillStyle(0x48532f)
+    g.fillRect(18, 26, 6, 6) // tear
+    g.fillStyle(0x9fb88a)
+    g.fillRect(0, 19, 8, 5); g.fillRect(24, 19, 8, 5) // arms forward
+    g.fillRect(10, 6, 12, 10) // head (pale green)
+    g.fillStyle(0x2f3a2f)
+    g.fillRect(13, 9, 3, 3) // eye
+    g.fillRect(12, 13, 5, 2) // mouth
+    g.generateTexture(TEX.zombie, 32, 48)
   } finally {
     g.destroy()
   }

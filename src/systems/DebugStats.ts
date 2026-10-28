@@ -8,14 +8,17 @@ export interface DebugStatsInput {
   worldY: number
   entityCount: number
   renderer: string
+  casual?: boolean
 }
 
 export function formatDebugStats(s: DebugStatsInput): string {
-  return [
+  const lines = [
     'FPS ' + s.fps.toFixed(0),
     'tile ' + s.tileX.toFixed(2) + ',' + s.tileY.toFixed(2),
     'world ' + s.worldX.toFixed(1) + ',' + s.worldY.toFixed(1),
     s.entityCount + ' objs',
     s.renderer,
-  ].join('\n')
+  ]
+  if (s.casual) lines.push('CASUAL')
+  return lines.join('\n')
 }

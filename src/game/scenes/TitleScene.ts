@@ -55,5 +55,8 @@ export class TitleScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-SPACE', start)
     this.input.keyboard!.on('keydown-ENTER', start)
     this.input.on('pointerup', start)
+
+    // TEMP verification hook (remove in C24): ?autostart skips the title.
+    if (window.location.search.includes('autostart')) start()
   }
 }
