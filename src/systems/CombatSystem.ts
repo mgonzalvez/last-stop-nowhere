@@ -105,6 +105,29 @@ export interface HitResult {
   knocked: boolean // false when the knockback tile was impassable
 }
 
+export interface SwingCostResult {
+  broken: boolean
+  itemId: string | null // the broken weapon's id (null otherwise)
+}
+
+/**
+ * Durability cost of a swing: −1 per swing. At 0 the weapon is removed from
+ * its slot (it breaks) and reported; the next swing re-resolves the held
+ * weapon (heldWeapon scans slot order), so the fallback is automatic.
+ */
+export function applySwingCost(inv: Inventory, slot: number): SwingCostResult {
+  const s = inv[slot]
+  if (!s || s.durability === undefined) {
+    return { broken: false, itemId: null }
+  }
+  s.durability -= 1
+  if (s.durability <= 0) {
+    inv[slot] = null
+    return { broken: true, itemId: s.itemId }
+  }
+  return { broken: false, itemId: null }
+}
+
 /**
  * Apply a hit: damage + stagger + knockback 0.5 tiles away from the
  * attacker (skipped when the target tile is impassable). Mutates z.

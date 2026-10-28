@@ -96,9 +96,16 @@ describe('debug overlay survival + container lines (C32)', () => {
   })
 })
 
-describe('S.A.F.E. catalog (M3 events)', () => {
-  it('has exactly one message per M3 event with non-empty text', () => {
-    const events: TutorialEvent[] = ['first.eat', 'first.heal', 'first.loot', 'hunger.low']
+describe('S.A.F.E. catalog (M3 + M4 events)', () => {
+  const events: TutorialEvent[] = [
+    'first.eat',
+    'first.heal',
+    'first.loot',
+    'hunger.low',
+    'weapon.broke',
+  ]
+
+  it('has exactly one message per event with non-empty text', () => {
     for (const event of events) {
       const msgs = TUTORIAL_MESSAGES.filter((m) => m.event === event)
       expect(msgs, event).toHaveLength(1)
@@ -106,8 +113,7 @@ describe('S.A.F.E. catalog (M3 events)', () => {
     }
   })
 
-  it('delivers each M3 event once (one-shot)', () => {
-    const events: TutorialEvent[] = ['first.eat', 'first.heal', 'first.loot', 'hunger.low']
+  it('delivers each event once (one-shot)', () => {
     for (const event of events) {
       const t = createTutorialState()
       expect(deliver(t, event)).not.toBeNull()

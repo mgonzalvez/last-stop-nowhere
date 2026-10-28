@@ -49,11 +49,12 @@ not started).
   player is invisible to zombies — no detect/investigate/attack, indicator
   top-right); S.A.F.E. first-chase one-shot message; debug overlay lists
   per-zombie state + position. 111/111 tests green, tsc + build clean.
-- TEMP hooks (added in C36, remove ALL in C39): TitleScene `?autostart`
+- TEMP hooks (added in C36-C37, remove ALL in C39): TitleScene `?autostart`
   (sync start in create); GameScene `?combat` (teleports player 1.0 tile
-  from the nearest zombie; swings at that zombie at tick 25); one
-  `console.log('C36HOOK ...')` line in GameScene.doAttack. Keep
-  update-tick-based and documented here as they change.
+  from the nearest zombie; re-stands + swings at ticks 25 and 67);
+  GameScene `?brittle` (sets held weapon durability to 1 so the swings
+  prove break + fallback); one `console.log('C36HOOK ...')` line in
+  GameScene.doAttack. Keep update-tick-based and documented here.
 - Docs: README.md (run + controls), CHANGELOG.md (per-chunk history),
   PLAN.md (chunk plan, M1 + M2 + M3 with acceptance checklists; M4 drafted,
   chunks C34–C39).

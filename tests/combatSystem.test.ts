@@ -7,6 +7,7 @@ import {
   zombieHealth,
   pickAttackTarget,
   applyHit,
+  applySwingCost,
   HIT_STAGGER_S,
   HIT_KNOCKBACK_TILES,
   ATTACK_AIM_RADIUS,
@@ -228,5 +229,57 @@ describe('applyHit (C35)', () => {
     expect(r.knocked).toBe(false)
     expect(z.x).toBe(11)
     expect(z.staggerS).toBe(HIT_STAGGER_S)
+  })
+})
+
+describe('applySwingCost (C37)', () => {
+  it('decrements durability per swing without breaking', () => {
+    const inv = createInventory([['kitchen_knife', 1]])
+    const r = applySwingCost(inv, 0)
+    expect(r.broken).toBe(false)
+    expect(r.itemId).toBeNull()
+    expect(inv[0]?.durability).toBe(39)
+  })
+
+  it('breaks the weapon at 0: removes the slot and reports its id', () => {
+    const inv = createInventory([['kitchen_knife', 1]])
+    inv[0]!.durability = 1
+    const r = applySwingCost(inv, 0)
+    expect(r.broken).toBe(true)
+    expect(r.itemId).toBe('kitchen_knife')
+    expect(inv[0]).toBeNull()
+  })
+
+  it('non-weapon slots (no durability) are never broken', () => {
+    const inv = createInventory([['flashlight', 1]])
+    const r = applySwingCost(inv, 0)
+    expect(r.broken).toBe(false)
+    expect(inv[0]).not.toBeNull()
+  })
+
+  it('empty slots are a no-op', () => {
+    const inv = createInventory()
+    const r = applySwingCost(inv, 3)
+    expect(r.broken).toBe(false)
+    expect(inv[3]).toBeNull()
+  })
+
+  it('held weapon re-resolves to the next weapon after a break', () => {
+    const inv = createInventory([
+      ['kitchen_knife', 1],
+      ['crowbar', 1],
+    ])
+    inv[0]!.durability = 1
+    applySwingCost(inv, 0)
+    const w = heldWeapon(inv)
+    expect(w?.itemId).toBe('crowbar')
+    expect(w?.slot).toBe(1)
+    expect(swingDamage(inv).damage).toBe(17) // crowbar base damage
+  })
+
+  it('a groovy swing still costs exactly one durability', () => {
+    const inv = createInventory([['hammer', 1]])
+    applySwingCost(inv, 0)
+    expect(inv[0]?.durability).toBe(17) // 18 - 1, damage irrelevant to cost
   })
 })

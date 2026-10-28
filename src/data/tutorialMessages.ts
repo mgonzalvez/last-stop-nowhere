@@ -12,8 +12,9 @@ export type TutorialEvent =
   | 'first.heal'
   | 'first.loot'
   | 'hunger.low'
+  | 'weapon.broke'
 // Future events (one message each, delivered when the event fires):
-// | 'hunger.low' | 'firstBuilding' | 'firstDoor' | ...
+// | 'firstBuilding' | 'firstDoor' | ...
 
 export interface TutorialMessage {
   id: string
@@ -67,5 +68,14 @@ export const TUTORIAL_MESSAGES: TutorialMessage[] = [
       'Advisory: your hunger level has entered the "concerned" range. The '
       + 'municipal pantry is located directly behind your left shoulder, in '
       + 'the direction you are least likely to look. We wish you luck.',
+  },
+  {
+    id: 'safe.broke',
+    event: 'weapon.broke',
+    text:
+      'Advisory: a tool you were holding has broken. Please be assured that '
+      + 'tools are expected to break. Also expected, but rarely on schedule, '
+      + 'is the breakage of hope. A replacement is probably inside one of '
+      + 'the containers that still rattle when tapped.',
   },
 ]
