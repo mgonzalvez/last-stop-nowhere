@@ -9,6 +9,8 @@ export interface DebugStatsInput {
   entityCount: number
   renderer: string
   casual?: boolean
+  /** Per-zombie FSM state + tile position (Milestone 2). */
+  zombies?: Array<{ id: number; state: string; x: number; y: number }>
 }
 
 export function formatDebugStats(s: DebugStatsInput): string {
@@ -20,5 +22,10 @@ export function formatDebugStats(s: DebugStatsInput): string {
     s.renderer,
   ]
   if (s.casual) lines.push('CASUAL')
+  if (s.zombies) {
+    for (const z of s.zombies) {
+      lines.push('z' + z.id + ' ' + z.state + ' @' + z.x.toFixed(1) + ',' + z.y.toFixed(1))
+    }
+  }
   return lines.join('\n')
 }

@@ -52,3 +52,22 @@ describe('S.A.F.E. delivery', () => {
     expect(deliver(s2, 'welcome')).not.toBeNull()
   })
 })
+
+describe('zombie.chased message (C23)', () => {
+  it('delivers the chase advisory exactly once, even if the event refires', () => {
+    const state = createTutorialState()
+    const first = deliver(state, 'zombie.chased')
+    const second = deliver(state, 'zombie.chased')
+    const third = deliver(state, 'zombie.chased')
+    expect(first).not.toBeNull()
+    expect(second).toBeNull()
+    expect(third).toBeNull()
+    expect(first!.id).toBe('safe.zombie')
+    expect(first!.text).toMatch(/run/i)
+  })
+
+  it('a disabled session receives no chase advisory', () => {
+    const state = createTutorialState(false)
+    expect(deliver(state, 'zombie.chased')).toBeNull()
+  })
+})

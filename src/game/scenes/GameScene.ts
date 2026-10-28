@@ -338,6 +338,11 @@ export class GameScene extends Phaser.Scene {
       if (this.player.health <= 0) this.die()
     }
     this.updateHealthBar()
+    // S.A.F.E. advisory on first contact: deliver() is one-shot per session.
+    const threatened = this.zombies.some(
+      ({ z }) => z.state === 'CHASE' || z.state === 'ATTACK',
+    )
+    if (threatened) this.showTutorial(deliver(this.tutorial, 'zombie.chased'))
   }
 
   /** Small health bar pinned to the view top-left. */
@@ -467,6 +472,12 @@ export class GameScene extends Phaser.Scene {
           renderer:
             this.game.renderer.type === Phaser.WEBGL ? 'webgl' : 'canvas',
           casual: this.casual,
+          zombies: this.zombies.map(({ z }) => ({
+            id: z.id,
+            state: z.state,
+            x: z.x,
+            y: z.y,
+          })),
         }),
       )
   }

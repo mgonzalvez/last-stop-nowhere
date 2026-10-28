@@ -5,7 +5,7 @@
 // DATA ONLY — no Phaser, no gameplay logic. Messages are keyed by event and
 // delivered event-triggered by TutorialSystem (see src/systems/).
 
-export type TutorialEvent = 'welcome'
+export type TutorialEvent = 'welcome' | 'zombie.chased'
 // Future events (one message each, delivered when the event fires):
 // | 'firstBuilding' | 'firstDoor' | ...
 
@@ -22,5 +22,13 @@ export const TUTORIAL_MESSAGES: TutorialMessage[] = [
     text:
       'Welcome to Nowhere. Please remain calm. Our records indicate panic ' +
       'has a disappointing success rate.',
+  },
+  {
+    id: 'safe.zombie',
+    event: 'zombie.chased',
+    text:
+      'You are being followed. This is not a commentary on your life ' +
+      'choices. Recommended response: run. We will not be liable for what ' +
+      'happens next.',
   },
 ]
