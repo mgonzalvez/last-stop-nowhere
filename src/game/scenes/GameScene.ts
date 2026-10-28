@@ -9,6 +9,7 @@ import { type InputState } from '../../systems/MovementSystem'
 import { moveWithCollision } from '../../systems/CollisionSystem'
 import { updateZombie, type ZombieContext } from '../../systems/ZombieAI'
 import { noiseRadius, NOISE_STILL } from '../../systems/Noise'
+import { tickSurvival } from '../../systems/StatsSystem'
 import {
   createTutorialState,
   deliver,
@@ -48,6 +49,13 @@ export class GameScene extends Phaser.Scene {
   private healthBar!: Phaser.GameObjects.Container
   private healthFill!: Phaser.GameObjects.Rectangle
   private healthText!: Phaser.GameObjects.Text
+  /** Milestone 3: survival HUD (hunger + stamina bars under health). */
+  private hungerBar!: Phaser.GameObjects.Container
+  private hungerFill!: Phaser.GameObjects.Rectangle
+  private hungerText!: Phaser.GameObjects.Text
+  private staminaBar!: Phaser.GameObjects.Container
+  private staminaFill!: Phaser.GameObjects.Rectangle
+  private staminaText!: Phaser.GameObjects.Text
   private deathOverlay!: Phaser.GameObjects.Container
   private roofIndex!: BuildingIndex
   private roofByBuilding = new Map<number, Phaser.GameObjects.Image[]>()
@@ -115,6 +123,7 @@ export class GameScene extends Phaser.Scene {
 
     this.buildCasualIndicator()
     this.buildHealthBar()
+    this.buildSurvivalBars()
   }
 
   /** Milestone 2: spawn the fixed zombie set (wander from C18+). */
@@ -255,13 +264,20 @@ export class GameScene extends Phaser.Scene {
       if (Phaser.Input.Keyboard.JustDown(this.keys.R)) this.scene.restart()
       return
     }
-    const sprinting = this.keys.SHIFT.isDown
+    const sprinting = this.keys.SHIFT.isDown && !this.player.sprintExhausted
     const speed = this.player.speed * (sprinting ? SPRINT_MULT : 1)
     this.player = moveWithCollision(this.player, input, worldMap, delta / 1000, speed)
     const s = tileToScreen(this.player.x, this.player.y)
     this.playerSprite.setPosition(s.x, s.y + TILE_H / 2)
     this.playerSprite.setDepth(depthFor(this.player.x, this.player.y))
     this.updateZombies(delta / 1000, input, sprinting)
+    // Milestone 3: survival tick (hunger/stamina/starvation). Starvation can
+    // finish the player off the same way zombie damage does.
+    const survival = tickSurvival(this.player, delta / 1000, sprinting)
+    this.player = survival.player
+    if (this.player.health <= 0 && !this.dead) this.die()
+    this.updateHealthBar()
+    this.updateSurvivalBars(survival.starving, survival.exhausted)
     this.updateRoofs(delta)
   }
 
@@ -322,6 +338,59 @@ export class GameScene extends Phaser.Scene {
     this.healthBar.setPosition(cam.scrollX + 14, cam.scrollY + 14)
     this.healthFill.setScale(Math.max(0.01, this.player.health / 100), 1)
     this.healthText.setText(`${Math.ceil(this.player.health)} / 100`)
+  }
+
+  /** Milestone 3: hunger + stamina bars stacked under the health bar. */
+  private buildSurvivalBars(): void {
+    const hunger = this.makeStatBar(0xd08a3e, 0x3a2f1a)
+    this.hungerBar = hunger.bar
+    this.hungerFill = hunger.fill
+    this.hungerText = hunger.text
+    const stamina = this.makeStatBar(0x5c9a50, 0x22331f)
+    this.staminaBar = stamina.bar
+    this.staminaFill = stamina.fill
+    this.staminaText = stamina.text
+  }
+
+  /** One stat bar (bg + pad + fill + value text), pinned to the view. */
+  private makeStatBar(
+    fillColor: number,
+    padColor: number,
+  ): { bar: Phaser.GameObjects.Container; fill: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text } {
+    const fill = this.add.rectangle(0, 0, 130, 10, fillColor).setOrigin(0, 0.5)
+    const text = this.add
+      .text(138, 0, '', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#d8c9a0',
+      })
+      .setOrigin(0, 0.5)
+    const bg = this.add.rectangle(0, 0, 134, 18, 0x15171e, 0.9)
+      .setOrigin(0, 0)
+      .setX(-4)
+      .setY(-9)
+    const pad = this.add.rectangle(0, 0, 132, 12, padColor)
+      .setOrigin(0, 0)
+      .setX(-2)
+      .setY(-6)
+    const bar = this.add.container(0, 0, [bg, pad, fill, text]).setDepth(4000)
+    return { bar, fill, text }
+  }
+
+  private updateSurvivalBars(starving: boolean, exhausted: boolean): void {
+    const cam = this.cameras.main
+    this.hungerBar.setPosition(cam.scrollX + 14, cam.scrollY + 42)
+    this.staminaBar.setPosition(cam.scrollX + 14, cam.scrollY + 70)
+    this.hungerFill.setScale(Math.max(0.01, this.player.hunger / 100), 1)
+    this.hungerFill.setFillStyle(starving ? 0xc0392b : 0xd08a3e)
+    this.hungerText.setText(
+      starving ? 'STARVED' : `${Math.ceil(this.player.hunger)} / 100`,
+    )
+    this.staminaFill.setScale(Math.max(0.01, this.player.stamina / 100), 1)
+    this.staminaFill.setFillStyle(exhausted ? 0xc0392b : 0x5c9a50)
+    this.staminaText.setText(
+      exhausted ? 'EXHAUSTED' : `${Math.ceil(this.player.stamina)} / 100`,
+    )
   }
 
   /** Death: the world freezes; R restarts the run. */

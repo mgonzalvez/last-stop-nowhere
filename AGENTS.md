@@ -47,11 +47,9 @@ Milestone 3 = Chunks 25–33, planned, not started).
   player is invisible to zombies — no detect/investigate/attack, indicator
   top-right); S.A.F.E. first-chase one-shot message; debug overlay lists
   per-zombie state + position. 111/111 tests green, tsc + build clean.
-- All temporary headless-verification URL hooks (`?autostart`, `?wanderlog`,
-  `?chasetest`, `?deathlog`, `?sprinttest`) were removed in Chunk 24.
-  If you need them again for verification, the patterns that worked (see
-  Environment note): sync scene.start in create() for transitions,
-  update-tick-based hooks (≤ ~150 ticks) for in-scene checks.
+- TEMP hooks (remove ALL in C33): TitleScene `?autostart` (sync start in
+  create, re-added for M3 HUD verification). Keep tick-based and documented
+  here as they land.
 - Docs: README.md (run + controls), CHANGELOG.md (per-chunk history),
   PLAN.md (chunk plan, M1 + M2 with acceptance checklist).
 - Pushed to github.com/mgonzalvez/last-stop-nowhere (main).
