@@ -219,3 +219,175 @@ verification hooks; final acceptance walk (below).
 
 Hunger/stamina, inventory, items/weapons, crafting, safehouse, zombie
 despawn/regen, player combat, swarm tactics, procedural zombies, save system.
+
+---
+
+# Implementation Plan — Milestone 3: Scavenge
+
+Source brief: `project_plan.md` §8 (Survival and Loot Systems), pillar A
+(Scavenging is the central reward loop). Milestones 1–2 are complete
+(C1–C24, pushed). Scope: **survival economy only** — hunger, stamina,
+inventory, loot containers, consumable use. No combat, no weapon use, no
+crafting, no safehouse, no procedural generation.
+
+This starts the central loop (pillar A): hunger makes scavenging necessary,
+scavenging fills the inventory, and the inventory lets you eat/heal and stay
+alive. Tool/resource items are carried but not yet used (combat + crafting are
+later phases).
+
+## Design constants (fixed for the milestone)
+
+- **Stats**: health 100 (M2, no regen). Hunger 100, decays 0.25/s (~1 per 4 s);
+  at 0, starvation = −2 health/s. Stamina 100; sprint drains 30/s (~3.3 s),
+  regens 20/s while not sprinting; at 0, sprint is blocked until it regens to
+  20 (hysteresis to avoid flicker).
+- **Casual (C)**: still threat-free vs zombies, and **hunger freezes** (no
+  starvation) — pure sightseeing mode.
+- **Inventory**: 16 slots, stackable per item `maxStack`. Hotbar = slots 1–8
+  (keys 1–8 use them). **I** toggles the overlay; the world freezes while open
+  (same early-return as pause).
+- **Items**: categories food / medical / tool / resource. Food restores hunger,
+  medical restores health, tool/resource are carry-only in M3. `maxStack`:
+  food 10, medical 5, tool 1, resource 10. Flat data — no inheritance.
+- **Starting items** (per brief): kitchen knife, canned soup ×1, bandage ×1,
+  flashlight, water ×1.
+- **Consumable effects**: canned soup +40 hunger, canned food +30 hunger,
+  water +15 hunger, bandage +25 health, painkiller +50 health. All clamp to max.
+- **Loot**: 6 fixed, handcrafted containers (passability verified by tests):
+  house 1/2/3 kitchen ×1, corner store ×2, outdoor yard ×1. Each is looted
+  **once** (E within 1.0 tile); each roll yields 3–5 items from a weighted
+  table by location type (kitchen = food-heavy, store = varied, yard =
+  resource-heavy). Full-inventory overflow is lost (no crash, no duplication).
+  Rolls use the seeded RNG (`mulberry32(LOOT_SEED + containerIndex)`) →
+  deterministic.
+- **Keys**: **E** = search a container, **I** = inventory overlay, **1–8** = use
+  hotbar. (WASD/arrows, SHIFT, C, T, F3, ESC, R unchanged.)
+- **S.A.F.E.**: three new one-shot messages — first low-hunger warning, first
+  container looted, first heal use.
+- **Determinism**: all loot rolls and stat decay are pure + seeded; unit tests
+  prove fixed-seed reproducibility.
+
+## New files
+
+- `src/data/items.ts` — item defs (id, name, category, maxStack, hunger/health
+  restore); flat array + map, no inheritance.
+- `src/data/lootTables.ts` — weighted tables per location type (kitchen/store/yard).
+- `src/data/lootContainerSpawns.ts` — 6 fixed containers ([x, y, type]) +
+  `LOOT_SEED` (mirrors `zombieSpawns.ts`).
+- `src/world/Inventory.ts` — 16-slot state + stack logic (add/useAt/removeAt).
+- `src/world/LootContainer.ts` — container state (x, y, type, looted).
+- `src/systems/StatsSystem.ts` — `tickSurvival(player, dt, sprinting)` →
+  `{ player, starving, exhausted }`; `applyItem(player, itemId)` → player.
+  Pure.
+- `src/systems/LootSystem.ts` — `rollLoot(table, count, rng)` → (itemId, qty)[]
+  (stack-merged). Pure.
+- `Player.ts` — add `hunger`, `stamina` to `PlayerState` (createPlayer defaults
+  100/100; update existing PlayerState test literals).
+- GameScene: stats HUD (hunger + stamina bars), inventory overlay, hotbar,
+  container sprites + `[E] Search` prompt, E/I/1–8 keys, sprint gate, casual
+  interaction.
+- `tutorialMessages.ts`: 3 new one-shot messages (hunger.low, first.loot,
+  first.healed).
+- tests: `statsSystem.test.ts`, `inventory.test.ts`, `lootSystem.test.ts`
+  (+ container spawn-validity cases).
+
+## Chunk 25 — Stats: hunger + stamina (pure + tests)
+
+Add `hunger`/`stamina` to `PlayerState` (createPlayer defaults 100; update
+existing PlayerState test literals). `StatsSystem.ts`: `tickSurvival(player,
+dt, sprinting)` → `{ player, starving, exhausted }` — hunger decay,
+starvation → health decay, sprint drain vs regen, exhaustion gate with
+hysteresis; `applyItem(player, itemId)` → player (clamped). No UI yet.
+Verify: tests — hunger decay at fixed dt; starvation health drop once hunger
+hits 0; sprint drains to exhausted; regen past threshold re-enables; applyItem
+restores + clamps; no starvation decay when not starving.
+
+## Chunk 26 — Stats HUD + sprint gate
+
+Hunger + stamina bars top-left (under the health bar), live update; visual
+warning when low/starving/exhausted. GameScene: `sprinting = SHIFT && !
+exhausted`; call `tickSurvival` each frame after the pause/death early-returns
+(stats freeze with the world, matching pause semantics).
+Verify: tsc + build; dev render — bars move, sprint blocked while exhausted, no
+console errors; headless shot.
+
+## Chunk 27 — Inventory core (pure + tests)
+
+`items.ts` (all items, flat data, categories, maxStack, restore values) +
+`Inventory.ts` — 16 slots, `add(inv, itemId, qty)` (fills existing stacks then
+empty slots, returns undelivered count), `useAt`, `removeAt`, `slotCount`.
+Verify: tests — add fills stacks then new slots; overflow returns dropped
+count; useAt decrements / clears at 0; per-item maxStack respected; starting-
+item placement helper.
+
+## Chunk 28 — Inventory UI + starting items
+
+**I** toggles a 16-slot overlay; slots show item name + stack count; first 8
+labeled 1–8 (hotbar). Starting items (knife, canned soup, bandage, flashlight,
+water) placed on create. World freezes while the overlay is open (same
+early-return as pause). **ESC** or **I** closes.
+Verify: tsc + build; dev — open/close, starting items visible + correct, world
+frozen while open, no errors; headless shot with the overlay open.
+
+## Chunk 29 — Item use + hotbar + S.A.F.E.
+
+1–8 uses the hotbar slot: `applyItem` (eat/heal) + `useAt` (consume); empty
+slot is a no-op. One-shot messages: first eat, first heal.
+Verify: tests — use restores stats + consumes the stack; empty is a no-op; dev
+— eat soup (hunger up, stack −1), bandage (health up), messages fire once.
+
+## Chunk 30 — Loot containers: data + state + render + prompt
+
+`lootContainerSpawns.ts` (6 fixed containers — passability verified by tests);
+`LootContainer.ts`; procedural crate texture (Graphics primitives only — no
+fillPoints); render with `depthFor`; show an `[E] Search` prompt when the
+player is within 1.0 tile of an unlooted container.
+Verify: tsc + build; spawn-validity test (6 passable tiles, in the right
+buildings); dev — crates visible in interiors, no console errors; headless shot.
+
+## Chunk 31 — Loot tables + open (pure + tests)
+
+`lootTables.ts` (weighted per location) + `LootSystem.rollLoot(table, count,
+rng)` → (itemId, qty)[] (stack-merged; count 3–5 from the same seeded rng).
+E opens the nearest unlooted container: roll with `mulberry32(LOOT_SEED +
+index)`, `add` to inventory (overflow lost), mark looted (no re-roll), S.A.F.E.
+first-loot message.
+Verify: tests — rollLoot deterministic per seed; distribution follows weights
+over N rolls; kitchen ≠ store ≠ yard; a container loots exactly once; overflow
+lost; dev — opening adds items, container marked looted, no re-loot.
+
+## Chunk 32 — Casual interaction + debug + tutorial
+
+Casual (C) also freezes hunger (no starvation). Debug overlay (F3): add
+hunger/stamina values + one line per container (`c0 KITCHEN looted` …).
+S.A.F.E. low-hunger one-shot message.
+Verify: tests — no starvation while casual; low-hunger message fires once; dev
+— debug lines present; headless shot.
+
+## Chunk 33 — Tests, docs, final verification
+
+Full suite green; README (stats, inventory, loot, controls E/I/1–8, casual),
+CHANGELOG (M3 entries C25–C33), AGENTS.md status + survival/inventory/loot
+system notes; remove all TEMP verification hooks; final acceptance walk (below).
+
+## M3 acceptance checklist
+
+- [ ] Hunger decays; starvation drains health; eating restores it
+- [ ] Sprint drains stamina; exhaustion blocks sprint; regen re-enables
+- [ ] Inventory 16 slots, stackable, starting items present
+- [ ] I toggles the overlay; world freezes while open; hotbar 1–8 uses items
+- [ ] Eat/heal consumes + restores; empty hotbar is a no-op
+- [ ] 6 containers render in interiors; E within 1.0 tile opens one
+- [ ] Loot weighted by location (kitchen/store/yard differ), 3–5 items, once
+- [ ] Full-inventory overflow is lost (no crash, no duplication)
+- [ ] Loot deterministic under a fixed seed (unit-proven)
+- [ ] Casual: no zombie threat + no starvation
+- [ ] S.A.F.E. first-hunger / first-loot / first-heal messages; debug shows
+  stats + containers
+- [ ] tsc strict clean, all tests green, build clean, no console errors
+
+## Out of scope (M3)
+
+Combat / weapon use (tool items are carry-only), crafting, safehouse, item
+durability, container re-loot / respawn, thirst as a separate stat, procedural
+loot placement, zombie drops, save system.

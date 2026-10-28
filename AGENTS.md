@@ -2,7 +2,8 @@
 
 Isometric zombie survival sandbox. Phaser 3 + TypeScript + Vite, zero other deps.
 Authoritative brief: `project_plan.md`. Step sequence: `PLAN.md`
-(Milestone 1 = Chunks 1–14, Milestone 2 = Chunks 15–24 — both complete).
+(Milestone 1 = Chunks 1–14, Milestone 2 = Chunks 15–24 — both complete;
+Milestone 3 = Chunks 25–33, planned, not started).
 
 ## Guardrails (follow every session)
 
@@ -15,10 +16,9 @@ Authoritative brief: `project_plan.md`. Step sequence: `PLAN.md`
    note the limitation, choose a simpler approach, and move on. Never chase edge
    cases outside the acceptance criteria (§13 of the brief).
 4. **Recognize drift.** If an action doesn't map to the next unfinished chunk in
-   PLAN.md, you are off-path. Milestones 1 + 2 are complete and the brief defines
-   no Milestone 3 — do not start new feature work (hunger/stamina, inventory,
-   weapons, combat, safehouse, swarms, procedural generation, save system) without
-   a new chunk plan in PLAN.md first.
+   PLAN.md, you are off-path. Next up is Milestone 3 — "Scavenge" (C25–C33).
+   Stay inside M3 scope: no combat/weapon use, crafting, safehouse, durability,
+   re-loot, procedural loot, or save system until a later plan exists.
 5. **Steer back.** Start each working step by naming the current chunk. Finish its
    verify step before starting the next. After any detour, re-read PLAN.md and
    return to the first unfinished chunk.
@@ -55,9 +55,11 @@ Authoritative brief: `project_plan.md`. Step sequence: `PLAN.md`
 - Docs: README.md (run + controls), CHANGELOG.md (per-chunk history),
   PLAN.md (chunk plan, M1 + M2 with acceptance checklist).
 - Pushed to github.com/mgonzalvez/last-stop-nowhere (main).
-- **Milestone 3 is not defined.** The brief's later phases (hunger/stamina,
-  inventory, safehouse, weapons, procedural gen) are explicitly out of scope
-  until a new plan exists.
+- **Milestone 3 — "Scavenge" — PLANNED, not started** (Chunks 25–33, see
+  PLAN.md). Survival economy: hunger + stamina stats, 16-slot stackable
+  inventory with 1–8 hotbar, 6 one-shot loot containers (weighted tables by
+  location: kitchen/store/yard), consumable use, casual also freezes hunger.
+  Next chunk: **C25 — Stats: hunger + stamina** (pure `StatsSystem.ts` + tests).
 
 ## Environment note (read before touching rendering)
 
