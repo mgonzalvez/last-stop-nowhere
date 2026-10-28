@@ -40,6 +40,12 @@ const INVESTIGATE_DWELL = 3
 const DETECT_RANGE = 6
 /** Seconds without LOS before a chase collapses into an investigation. */
 const CHASE_TIMEOUT = 5
+/** Melee: tiles within which the player takes hits. */
+const ATTACK_RANGE = 0.9
+/** Attack rhythm: windup, then damage per second (M2 constants). */
+const ATTACK_WINDUP = 0.4
+const ATTACK_DAMAGE = 12
+const ATTACK_INTERVAL = 1
 
 /**
  * Advance the zombie along its path for dt seconds. Movement is done in
@@ -126,17 +132,33 @@ function noticeNoise(
   }
 }
 
-/** C20: spot the player (range + LOS) -> chase, re-pathing each tick. */
+/**
+ * C20/C21: sense the player. Melee range -> ATTACK (priority over all);
+ * visible in range -> CHASE, re-pathing at the decision rate.
+ * Returns true when the player was in melee range or visible.
+ */
 function noticePlayer(
   z: ZombieState,
   passable: PassableFn,
   ctx: ZombieContext,
 ): boolean {
-  if (ctx.casual || z.state === 'ATTACK') return false
+  if (ctx.casual) return false
   const dist = Math.hypot(ctx.playerX - z.x, ctx.playerY - z.y)
+  const pt: [number, number] = [Math.round(ctx.playerX), Math.round(ctx.playerY)]
+
+  if (dist <= ATTACK_RANGE) {
+    // in melee: attack; the windup starts fresh only on entry
+    z.lostSightTime = 0
+    z.lastKnown = [pt[0], pt[1]]
+    if (z.state !== 'ATTACK') {
+      z.state = 'ATTACK'
+      z.attackTimer = ATTACK_WINDUP
+    }
+    z.path = [] // stop walking; hold position on the player
+    return true
+  }
   if (dist > DETECT_RANGE) return false
   const zt: [number, number] = [Math.round(z.x), Math.round(z.y)]
-  const pt: [number, number] = [Math.round(ctx.playerX), Math.round(ctx.playerY)]
   if (!losClear(passable, zt, pt)) return false
 
   z.lostSightTime = 0
@@ -147,7 +169,8 @@ function noticePlayer(
   return true
 }
 
-function decide(z: ZombieState, passable: PassableFn, ctx: ZombieContext): void {
+function decide(z: ZombieState, passable: PassableFn, ctx: ZombieContext): number {
+  let damage = 0
   const visible = noticePlayer(z, passable, ctx)
   noticeNoise(z, passable, ctx)
   switch (z.state) {
@@ -191,25 +214,50 @@ function decide(z: ZombieState, passable: PassableFn, ctx: ZombieContext): void 
         z.lastKnown = null
       }
       break
+    case 'ATTACK': {
+      // (visible + out of range is already handled by noticePlayer -> CHASE)
+      const dist = Math.hypot(ctx.playerX - z.x, ctx.playerY - z.y)
+      if (dist > ATTACK_RANGE) {
+        // player slipped out of reach while invisible: go find them
+        z.attackTimer = 0
+        z.state = 'INVESTIGATE'
+        z.stateTimer = INVESTIGATE_DWELL
+        if (z.lastKnown && !repath(z, passable, z.lastKnown[0], z.lastKnown[1])) {
+          z.path = []
+        }
+        z.lastKnown = null
+        break
+      }
+      z.attackTimer -= DECISION_STEP
+      if (z.attackTimer <= 0) {
+        damage += ATTACK_DAMAGE
+        z.attackTimer += ATTACK_INTERVAL
+      }
+      break
+    }
     default:
-      break // ATTACK arrives in C21
+      break
   }
+  return damage
 }
 
 /**
  * Update one zombie: smooth per-frame path following plus fixed-rate
- * (8 Hz) decisions. Mutates z in place.
+ * (8 Hz) decisions. Mutates z in place. Returns damage dealt to the
+ * player this call (0 when none — the scene applies it).
  */
 export function updateZombie(
   z: ZombieState,
   passable: PassableFn,
   dt: number,
   ctx: ZombieContext,
-): void {
+): number {
+  let damage = 0
   moveAlongPath(z, dt)
   z.decisionAccum += dt
   while (z.decisionAccum >= DECISION_STEP) {
     z.decisionAccum -= DECISION_STEP
-    decide(z, passable, ctx)
+    damage += decide(z, passable, ctx)
   }
+  return damage
 }

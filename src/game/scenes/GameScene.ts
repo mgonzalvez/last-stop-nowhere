@@ -43,6 +43,12 @@ export class GameScene extends Phaser.Scene {
   /** Casual mode: zombies never detect or attack (C toggles). */
   private casual = false
   private casualText!: Phaser.GameObjects.Text
+  /** Milestone 2: player health HUD + death state. */
+  private dead = false
+  private healthBar!: Phaser.GameObjects.Container
+  private healthFill!: Phaser.GameObjects.Rectangle
+  private healthText!: Phaser.GameObjects.Text
+  private deathOverlay!: Phaser.GameObjects.Container
   private roofIndex!: BuildingIndex
   private roofByBuilding = new Map<number, Phaser.GameObjects.Image[]>()
   /** Current roof alpha per building (0 hidden, 1 shown). */
@@ -54,6 +60,7 @@ export class GameScene extends Phaser.Scene {
   private _dbgTick = 0
   private _tick = 0
   private wanderLog = false
+  private deathLog = false
   private pauseOverlay!: Phaser.GameObjects.Container
   private keys!: {
     W: Phaser.Input.Keyboard.Key
@@ -109,10 +116,12 @@ export class GameScene extends Phaser.Scene {
     this.showTutorial(deliver(this.tutorial, 'welcome'))
 
     this.buildCasualIndicator()
+    this.buildHealthBar()
 
     // TEMP verification hook (remove in C24): ?wanderlog logs zombie
     // state/position at fixed ticks so headless runs can prove movement.
     if (window.location.search.includes('wanderlog')) this.wanderLog = true
+    if (window.location.search.includes('deathlog')) this.deathLog = true
     // TEMP verification hook (remove in C24): ?chasetest places zombie 0
     // one tile from the player spawn so a headless run can prove CHASE.
     if (window.location.search.includes('chasetest') && this.zombies.length > 0) {
@@ -237,6 +246,16 @@ export class GameScene extends Phaser.Scene {
     if (this.wanderLog && (this._tick === 5 || this._tick === 60)) {
       this.logZombies('WANDER@' + this._tick)
     }
+    // TEMP verification hook (remove in C24): ?deathlog weakens the player
+    // at tick 30 so one zombie hit finishes the death-flow proof.
+    if (this.deathLog) {
+      if (this._tick === 30) this.player.health = 12
+      if (this._tick >= 60 && this._tick % 20 === 0) {
+        console.log(
+          'DEATH_TEST t' + this._tick + ' hp=' + this.player.health + ' dead=' + this.dead,
+        )
+      }
+    }
     let input: InputState = {
       up: this.keys.W.isDown || this.keys.UP.isDown,
       down: this.keys.S.isDown || this.keys.DOWN.isDown,
@@ -262,6 +281,11 @@ export class GameScene extends Phaser.Scene {
       this._dbgTick++
       if (this._dbgTick % 6 === 0) this.updateDebug() // ~10Hz text refresh
     }
+    // Death is terminal: only R works.
+    if (this.dead) {
+      if (Phaser.Input.Keyboard.JustDown(this.keys.R)) this.scene.restart()
+      return
+    }
     // Pause controls work in both states; the world freezes while paused.
     if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) this.togglePause()
     if (Phaser.Input.Keyboard.JustDown(this.keys.T)) this.toggleTutorial()
@@ -286,12 +310,95 @@ export class GameScene extends Phaser.Scene {
       noiseRadius: this.casual ? NOISE_STILL : noiseRadius(moving),
       casual: this.casual,
     }
+    let damage = 0
     for (const { z, sprite } of this.zombies) {
-      updateZombie(z, passableTile, dt, ctx)
+      damage += updateZombie(z, passableTile, dt, ctx)
       const s = tileToScreen(z.x, z.y)
       sprite.setPosition(s.x, s.y + TILE_H / 2)
       sprite.setDepth(depthFor(z.x, z.y))
     }
+    if (damage > 0) {
+      this.player.health = Math.max(0, this.player.health - damage)
+      if (this.player.health <= 0) this.die()
+    }
+    this.updateHealthBar()
+  }
+
+  /** Small health bar pinned to the view top-left. */
+  private buildHealthBar(): void {
+    this.healthFill = this.add.rectangle(0, 0, 130, 10, 0xc0392b)
+    this.healthFill.setOrigin(0, 0.5)
+    this.healthText = this.add
+      .text(138, 0, '', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#d8c9a0',
+      })
+      .setOrigin(0, 0.5)
+    const bg = this.add.rectangle(0, 0, 134, 18, 0x15171e, 0.9)
+      .setOrigin(0, 0)
+      .setX(-4)
+      .setY(-9)
+    const pad = this.add.rectangle(0, 0, 132, 12, 0x3a1f1a)
+      .setOrigin(0, 0)
+      .setX(-2)
+      .setY(-6)
+    this.healthBar = this.add
+      .container(0, 0, [bg, pad, this.healthFill, this.healthText])
+      .setDepth(4000)
+  }
+
+  private updateHealthBar(): void {
+    const cam = this.cameras.main
+    this.healthBar.setPosition(cam.scrollX + 14, cam.scrollY + 14)
+    this.healthFill.setScale(Math.max(0.01, this.player.health / 100), 1)
+    this.healthText.setText(`${Math.ceil(this.player.health)} / 100`)
+  }
+
+  /** Death: the world freezes; R restarts the run. */
+  private die(): void {
+    if (this.dead) return
+    this.dead = true
+    const mid = this.cameras.main.midPoint
+    const dim = this.add.rectangle(mid.x, mid.y, 8192, 8192, 0x000000, 0.6)
+    const title = this.add
+      .text(mid.x, mid.y - 40, 'YOU HAVE JOINED THE NEIGHBORHOOD', {
+        fontFamily: 'monospace',
+        fontSize: '34px',
+        fontStyle: 'bold',
+        color: '#c9b189',
+        align: 'center',
+      })
+      .setOrigin(0.5)
+    const body = this.add
+      .text(
+        mid.x,
+        mid.y + 12,
+        'S.A.F.E. Advisory: You are now a resident of Nowhere.\nPlease keep your moaning to a minimum — the others are still adjusting.',
+        {
+          fontFamily: 'monospace',
+          fontSize: '15px',
+          color: '#9a9a92',
+          align: 'center',
+        },
+      )
+      .setOrigin(0.5)
+    const retry = this.add
+      .text(mid.x, mid.y + 70, 'R — TRY AGAIN', {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        fontStyle: 'bold',
+        color: '#4c8a46',
+      })
+      .setOrigin(0.5)
+    this.tweens.add({
+      targets: retry,
+      alpha: 0.3,
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+    })
+    this.deathOverlay = this.add.container(0, 0, [dim, title, body, retry]).setDepth(3000)
   }
 
   /** S.A.F.E. banner: one message at a time, auto-dismisses (no spam). */
@@ -332,7 +439,7 @@ export class GameScene extends Phaser.Scene {
     const cam = this.cameras.main
     const s = tileToScreen(this.player.x, this.player.y)
     this.debugText
-      .setPosition(cam.scrollX + 10, cam.scrollY + 10)
+      .setPosition(cam.scrollX + 10, cam.scrollY + 42) // below the health bar
       .setText(
         formatDebugStats({
           fps: this.game.loop.actualFps,

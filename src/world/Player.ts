@@ -4,8 +4,16 @@ export interface PlayerState {
   x: number // tile space (float)
   y: number // tile space (float)
   speed: number // screen px / second; constant across all 8 directions
+  health: number // 0..MAX_HEALTH; no regen, no healing in Milestone 2
 }
 
-export function createPlayer(x: number, y: number, speed = 150): PlayerState {
-  return { x, y, speed }
+export const MAX_HEALTH = 100
+
+export function createPlayer(
+  x: number,
+  y: number,
+  speed = 150,
+  health = MAX_HEALTH,
+): PlayerState {
+  return { x, y, speed, health }
 }

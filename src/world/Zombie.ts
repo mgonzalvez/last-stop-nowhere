@@ -28,6 +28,8 @@ export interface ZombieState {
   lastKnown: [number, number] | null
   /** Seconds since the player was last visible (chase timeout). */
   lostSightTime: number
+  /** ATTACK rhythm: windup countdown, then seconds until the next hit. */
+  attackTimer: number
   /** Seconds until the next state change (idle window, etc.). */
   stateTimer: number
   /** Seconds accumulated toward the next 8 Hz decision tick. */
@@ -56,6 +58,7 @@ export function createZombie(
     target: null,
     lastKnown: null,
     lostSightTime: 0,
+    attackTimer: 0,
     // stagger the first move so zombies don't shuffle in unison
     stateTimer: 0.5 + rng() * 2,
     decisionAccum: 0,

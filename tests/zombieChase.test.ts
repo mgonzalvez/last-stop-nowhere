@@ -124,8 +124,9 @@ describe('zombie AI on the real map (integration)', () => {
     const samples = drive(z, 12, real, () => ctx(33, 21))
     const states = samples.map((s) => s.state)
     expect(states.includes('CHASE')).toBe(true)
-    const reached = samples.some((s) => Math.hypot(s.x - 33, s.y - 21) < 0.6)
-    expect(reached).toBe(true)
+    const closed = samples.some((s) => Math.hypot(s.x - 33, s.y - 21) < 1.0)
+    expect(closed).toBe(true)
+    expect(states.includes('ATTACK')).toBe(true)
   })
 
   it('investigates noise from inside a house, entering through the door', () => {
@@ -136,9 +137,10 @@ describe('zombie AI on the real map (integration)', () => {
     const samples = drive(z, 25, real, (t) => ctx(8, 17, t < 2 ? 5 : 0))
     const states = samples.map((s) => s.state)
     expect(states.includes('INVESTIGATE')).toBe(true)
-    const reached = samples.some((s) => Math.hypot(s.x - 8, s.y - 17) < 0.6)
+    // it gets to the source (stopping at attack range ~0.9 tiles)
+    const reached = samples.some((s) => Math.hypot(s.x - 8, s.y - 17) < 1.0)
     expect(reached).toBe(true)
-    expect(states.lastIndexOf('INVESTIGATE')).toBeLessThan(states.length - 1)
+    expect(states.includes('ATTACK')).toBe(true)
   })
 })
 
@@ -151,11 +153,13 @@ describe('zombie AI: CHASE (C20)', () => {
     expect(samples[firstChase].t).toBeLessThan(0.5)
   })
 
-  it('a chase converges on a standing player', () => {
+  it('a chase converges on a standing player and closes to attack range', () => {
     const z = pinned(4, 2, 10, 2)
     const samples = drive(z, 15, wideGrid, () => ctx(5, 10))
-    const reached = samples.some((s) => Math.hypot(s.x - 5, s.y - 10) < 0.6)
+    const reached = samples.some((s) => Math.hypot(s.x - 5, s.y - 10) < 1.0)
     expect(reached).toBe(true)
+    const states = samples.map((s) => s.state)
+    expect(states.includes('ATTACK')).toBe(true)
   })
 
   it('no line of sight: a hidden player is never chased', () => {
@@ -184,7 +188,10 @@ describe('zombie AI: CHASE (C20)', () => {
     expect(chaseAt).toBeGreaterThanOrEqual(0)
     expect(investigateAt).toBeGreaterThan(chaseAt)
     // it checks the last place the player was seen
-    expect(z.target).toEqual([5, 10])
+    const visitedLKP = samples.some(
+      (s) => s.t > 1.5 && Math.hypot(s.x - 5, s.y - 10) < 0.6,
+    )
+    expect(visitedLKP).toBe(true)
   })
 
   it('casual mode: even a visible player is not chased', () => {
