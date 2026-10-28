@@ -79,3 +79,31 @@ describe('movePlayer', () => {
     expect(stepped.y).toBeCloseTo(once.y, 10)
   })
 })
+
+describe('sprint (C22)', () => {
+  it('the speed override scales screen speed (1.5x = 225 px/s at 150)', () => {
+    const p = createPlayer(10, 10) // default speed 150
+    const next = movePlayer(p, INPUTS.right, 1, 225)
+    const a = tileToScreen(p.x, p.y)
+    const b = tileToScreen(next.x, next.y)
+    expect(Math.hypot(b.x - a.x, b.y - a.y)).toBeCloseTo(225, 5)
+  })
+
+  it('sprint diagonal speed equals sprint axis speed', () => {
+    const axis = movePlayer(createPlayer(10, 10), INPUTS.right, 1, 225)
+    const diag = movePlayer(createPlayer(10, 10), INPUTS.upRight, 1, 225)
+    const sa = Math.hypot(tileToScreen(axis.x, axis.y).x - tileToScreen(10, 10).x,
+      tileToScreen(axis.x, axis.y).y - tileToScreen(10, 10).y)
+    const sd = Math.hypot(tileToScreen(diag.x, diag.y).x - tileToScreen(10, 10).x,
+      tileToScreen(diag.x, diag.y).y - tileToScreen(10, 10).y)
+    expect(sd).toBeCloseTo(sa, 5)
+  })
+
+  it('default (no override) is unchanged: 150 px/s', () => {
+    const p = createPlayer(10, 10)
+    const next = movePlayer(p, INPUTS.right, 1)
+    const a = tileToScreen(p.x, p.y)
+    const b = tileToScreen(next.x, next.y)
+    expect(Math.hypot(b.x - a.x, b.y - a.y)).toBeCloseTo(150, 5)
+  })
+})

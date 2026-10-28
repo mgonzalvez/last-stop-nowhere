@@ -51,8 +51,9 @@ export function moveWithCollision(
   input: InputState,
   map: WorldMap,
   dt: number,
+  speed = player.speed,
 ): PlayerState {
-  const { vx, vy } = inputVelocity(player, input)
+  const { vx, vy } = inputVelocity(player, input, speed)
   const res = resolveStep(map, player.x, player.y, player.x + vx * dt, player.y + vy * dt)
   return { ...player, x: res.x, y: res.y }
 }

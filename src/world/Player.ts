@@ -9,6 +9,9 @@ export interface PlayerState {
 
 export const MAX_HEALTH = 100
 
+/** Sprint multiplier (Shift). No stamina in Milestone 2. */
+export const SPRINT_MULT = 1.5
+
 export function createPlayer(
   x: number,
   y: number,

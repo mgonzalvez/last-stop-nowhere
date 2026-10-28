@@ -2,7 +2,7 @@ import Phaser from 'phaser'
 import { worldMap, MAP_SIZE } from '../../world/WorldMap'
 import { TileType } from '../../world/TileTypes'
 import { setOrigin, tileToScreen, TILE_W, TILE_H } from '../../world/IsoProjection'
-import { createPlayer, type PlayerState } from '../../world/Player'
+import { createPlayer, SPRINT_MULT, type PlayerState } from '../../world/Player'
 import { createZombie, type ZombieState } from '../../world/Zombie'
 import { ZOMBIE_SPAWNS, ZOMBIE_SEED } from '../../data/zombieSpawns'
 import { type InputState } from '../../systems/MovementSystem'
@@ -61,6 +61,7 @@ export class GameScene extends Phaser.Scene {
   private _tick = 0
   private wanderLog = false
   private deathLog = false
+  private sprintLog = false
   private pauseOverlay!: Phaser.GameObjects.Container
   private keys!: {
     W: Phaser.Input.Keyboard.Key
@@ -76,6 +77,7 @@ export class GameScene extends Phaser.Scene {
     DOWN: Phaser.Input.Keyboard.Key
     LEFT: Phaser.Input.Keyboard.Key
     RIGHT: Phaser.Input.Keyboard.Key
+    SHIFT: Phaser.Input.Keyboard.Key
   }
 
   constructor() {
@@ -95,7 +97,7 @@ export class GameScene extends Phaser.Scene {
     this.setupCamera()
     this.buildPauseOverlay()
     this.keys = this.input.keyboard!.addKeys(
-      'W,A,S,D,R,T,C,F3,ESC,UP,DOWN,LEFT,RIGHT',
+      'W,A,S,D,R,T,C,F3,ESC,UP,DOWN,LEFT,RIGHT,SHIFT',
     ) as unknown as GameScene['keys']
 
     // Debug overlay (F3): FPS, tile coords, world pos, entity count, renderer.
@@ -122,6 +124,7 @@ export class GameScene extends Phaser.Scene {
     // state/position at fixed ticks so headless runs can prove movement.
     if (window.location.search.includes('wanderlog')) this.wanderLog = true
     if (window.location.search.includes('deathlog')) this.deathLog = true
+    if (window.location.search.includes('sprintlog')) this.sprintLog = true
     // TEMP verification hook (remove in C24): ?chasetest places zombie 0
     // one tile from the player spawn so a headless run can prove CHASE.
     if (window.location.search.includes('chasetest') && this.zombies.length > 0) {
@@ -256,11 +259,22 @@ export class GameScene extends Phaser.Scene {
         )
       }
     }
+    // TEMP ?sprinttest: force right-sprint from tick 20 (remove in C24).
+    const forced =
+      this.sprintLog &&
+      this._tick >= 20 &&
+      window.location.search.includes('sprinttest')
     let input: InputState = {
-      up: this.keys.W.isDown || this.keys.UP.isDown,
-      down: this.keys.S.isDown || this.keys.DOWN.isDown,
-      left: this.keys.A.isDown || this.keys.LEFT.isDown,
-      right: this.keys.D.isDown || this.keys.RIGHT.isDown,
+      up: forced ? false : this.keys.W.isDown || this.keys.UP.isDown,
+      down: forced ? false : this.keys.S.isDown || this.keys.DOWN.isDown,
+      left: forced ? false : this.keys.A.isDown || this.keys.LEFT.isDown,
+      right: forced ? true : this.keys.D.isDown || this.keys.RIGHT.isDown,
+    }
+    if (forced && this._tick === 20) {
+      console.log('SPRINT_TEST t20 x=' + this.player.x.toFixed(2) + ' y=' + this.player.y.toFixed(2))
+    }
+    if (forced && this._tick === 80) {
+      console.log('SPRINT_TEST t80 x=' + this.player.x.toFixed(2) + ' y=' + this.player.y.toFixed(2))
     }
     // Debug overlay (F3) — works even while paused.
     if (Phaser.Input.Keyboard.JustDown(this.keys.F3)) {
@@ -293,21 +307,23 @@ export class GameScene extends Phaser.Scene {
       if (Phaser.Input.Keyboard.JustDown(this.keys.R)) this.scene.restart()
       return
     }
-    this.player = moveWithCollision(this.player, input, worldMap, delta / 1000)
+    const sprinting = forced || this.keys.SHIFT.isDown
+    const speed = this.player.speed * (sprinting ? SPRINT_MULT : 1)
+    this.player = moveWithCollision(this.player, input, worldMap, delta / 1000, speed)
     const s = tileToScreen(this.player.x, this.player.y)
     this.playerSprite.setPosition(s.x, s.y + TILE_H / 2)
     this.playerSprite.setDepth(depthFor(this.player.x, this.player.y))
-    this.updateZombies(delta / 1000, input)
+    this.updateZombies(delta / 1000, input, sprinting)
     this.updateRoofs(delta)
   }
 
   /** Milestone 2: zombies wander (C18), investigate noise (C19). */
-  private updateZombies(dt: number, input: InputState): void {
+  private updateZombies(dt: number, input: InputState, sprinting: boolean): void {
     const moving = input.up || input.down || input.left || input.right
     const ctx: ZombieContext = {
       playerX: this.player.x,
       playerY: this.player.y,
-      noiseRadius: this.casual ? NOISE_STILL : noiseRadius(moving),
+      noiseRadius: this.casual ? NOISE_STILL : noiseRadius(moving, sprinting),
       casual: this.casual,
     }
     let damage = 0

@@ -18,6 +18,7 @@ export interface InputState {
 export function inputVelocity(
   player: PlayerState,
   input: InputState,
+  speed = player.speed,
 ): { vx: number; vy: number } {
   const ix = (input.right ? 1 : 0) - (input.left ? 1 : 0)
   const iy = (input.down ? 1 : 0) - (input.up ? 1 : 0)
@@ -31,8 +32,8 @@ export function inputVelocity(
   const hw = TILE_W / 2
   const hh = TILE_H / 2
   return {
-    vx: ((sx / hw + sy / hh) / 2) * player.speed,
-    vy: ((sy / hh - sx / hw) / 2) * player.speed,
+    vx: ((sx / hw + sy / hh) / 2) * speed,
+    vy: ((sy / hh - sx / hw) / 2) * speed,
   }
 }
 
@@ -41,7 +42,8 @@ export function movePlayer(
   player: PlayerState,
   input: InputState,
   dt: number,
+  speed = player.speed,
 ): PlayerState {
-  const { vx, vy } = inputVelocity(player, input)
+  const { vx, vy } = inputVelocity(player, input, speed)
   return { ...player, x: player.x + vx * dt, y: player.y + vy * dt }
 }
