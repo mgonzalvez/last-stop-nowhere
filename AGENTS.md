@@ -49,7 +49,8 @@ Milestone 3 = Chunks 25–33, planned, not started).
   per-zombie state + position. 111/111 tests green, tsc + build clean.
 - TEMP hooks (remove ALL in C33): TitleScene `?autostart` (sync start in
   create, re-added for M3 HUD verification); GameScene `?invtest` (opens the
-  inventory overlay on start, C28). Keep tick-based and documented here as
+  inventory overlay on start, C28); GameScene `?nearcrate` (teleports player
+  beside the yard container, C30). Keep tick-based and documented here as
   they land.
 - Docs: README.md (run + controls), CHANGELOG.md (per-chunk history),
   PLAN.md (chunk plan, M1 + M2 with acceptance checklist).

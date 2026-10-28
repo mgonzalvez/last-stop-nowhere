@@ -4,6 +4,11 @@ import { TileType } from '../../world/TileTypes'
 import { setOrigin, tileToScreen, TILE_W, TILE_H } from '../../world/IsoProjection'
 import { createPlayer, SPRINT_MULT, type PlayerState } from '../../world/Player'
 import { createZombie, type ZombieState } from '../../world/Zombie'
+import {
+  createLootContainers,
+  CONTAINER_INTERACT_RANGE,
+  type LootContainerState,
+} from '../../world/LootContainer'
 import { ZOMBIE_SPAWNS, ZOMBIE_SEED } from '../../data/zombieSpawns'
 import { type InputState } from '../../systems/MovementSystem'
 import { moveWithCollision } from '../../systems/CollisionSystem'
@@ -44,6 +49,9 @@ export class GameScene extends Phaser.Scene {
   private playerSprite!: Phaser.GameObjects.Image
   /** Milestone 2: zombie entities + sprites (AI lands in C18+). */
   private zombies: { z: ZombieState; sprite: Phaser.GameObjects.Image }[] = []
+  /** Milestone 3: loot containers (C30) + [E] prompt. */
+  private containers: { c: LootContainerState; sprite: Phaser.GameObjects.Image }[] = []
+  private containerPrompt!: Phaser.GameObjects.Text
   /** Casual mode: zombies never detect or attack (C toggles). */
   private casual = false
   private casualText!: Phaser.GameObjects.Text
@@ -109,6 +117,7 @@ export class GameScene extends Phaser.Scene {
 
     this.spawnPlayer()
     this.createZombies()
+    this.createContainers()
     this.setupCamera()
     this.buildPauseOverlay()
     this.keys = this.input.keyboard!.addKeys(
@@ -151,6 +160,16 @@ export class GameScene extends Phaser.Scene {
     // TEMP verification hook (remove in C33): ?invtest opens the inventory
     // overlay on start so a headless run can screenshot it.
     if (window.location.search.includes('invtest')) this.toggleInventory(true)
+    // TEMP verification hook (remove in C33): ?nearcrate places the player
+    // one tile from the yard container so a headless run can screenshot the
+    // crate + [E] Search prompt.
+    if (window.location.search.includes('nearcrate')) {
+      this.player.x = 35
+      this.player.y = 24
+      const s = tileToScreen(this.player.x, this.player.y)
+      this.playerSprite.setPosition(s.x, s.y + TILE_H / 2)
+      this.playerSprite.setDepth(depthFor(this.player.x, this.player.y))
+    }
   }
 
   /** Milestone 2: spawn the fixed zombie set (wander from C18+). */
@@ -310,6 +329,7 @@ export class GameScene extends Phaser.Scene {
         break
       }
     }
+    this.updateContainerPrompt()
     const sprinting = this.keys.SHIFT.isDown && !this.player.sprintExhausted
     const speed = this.player.speed * (sprinting ? SPRINT_MULT : 1)
     this.player = moveWithCollision(this.player, input, worldMap, delta / 1000, speed)
@@ -325,6 +345,52 @@ export class GameScene extends Phaser.Scene {
     this.updateHealthBar()
     this.updateSurvivalBars(survival.starving, survival.exhausted)
     this.updateRoofs(delta)
+  }
+
+  /** Milestone 3: fixed loot containers (C30); opening lands in C31. */
+  private createContainers(): void {
+    this.containers = createLootContainers().map((c) => {
+      const s = tileToScreen(c.x, c.y)
+      const sprite = this.add
+        .image(s.x + TILE_W / 2, s.y + TILE_H / 2, TEX.crate)
+        .setOrigin(0.5, 1)
+        .setDepth(depthFor(c.x, c.y))
+      return { c, sprite }
+    })
+    this.containerPrompt = this.add
+      .text(0, 0, '[E] Search', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#d8c9a0',
+        backgroundColor: '#15171e',
+        padding: { x: 6, y: 4 },
+      })
+      .setOrigin(0.5)
+      .setDepth(4500)
+      .setVisible(false)
+  }
+
+  /** Show [E] Search over the nearest unlooted container in range. */
+  private updateContainerPrompt(): void {
+    let nearest: { c: LootContainerState; sprite: Phaser.GameObjects.Image } | null = null
+    let best = CONTAINER_INTERACT_RANGE
+    for (const entry of this.containers) {
+      if (entry.c.looted) continue
+      const d = Math.hypot(entry.c.x - this.player.x, entry.c.y - this.player.y)
+      if (d <= best) {
+        best = d
+        nearest = entry
+      }
+    }
+    if (!nearest) {
+      this.containerPrompt.setVisible(false)
+      return
+    }
+    const s = tileToScreen(nearest.c.x, nearest.c.y)
+    // The crate texture rises ~48px from the tile center; float the prompt
+    // above the crate, not on top of it.
+    this.containerPrompt.setPosition(s.x + TILE_W / 2, s.y - 36)
+    this.containerPrompt.setVisible(true)
   }
 
   /** Milestone 2: zombies wander (C18), investigate noise (C19). */

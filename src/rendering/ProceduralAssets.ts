@@ -19,6 +19,7 @@ export const TEX = {
   fence: 'fence',
   tree: 'tree',
   car: 'car',
+  crate: 'crate',
   player: 'player',
   zombie: 'zombie',
 } as const
@@ -149,6 +150,21 @@ export function createProceduralAssets(scene: Phaser.Scene): void {
     g.fillStyle(0x555555)
     g.fillCircle(26, 46, 3); g.fillCircle(70, 46, 3)
     g.generateTexture(TEX.car, 96, 64)
+
+    // --- crate (48x48; anchor bottom-center) ----------------------------
+    g.clear()
+    g.fillStyle(0x000000, 0.3)
+    g.fillEllipse(24, 45, 30, 10) // shadow
+    g.fillStyle(0x6b4a2a) // front-left face
+    g.fillTriangle(6, 18, 24, 27, 24, 45)
+    g.fillTriangle(6, 18, 24, 45, 6, 36)
+    g.fillStyle(0x5a3d22) // front-right face (darker)
+    g.fillTriangle(42, 18, 24, 27, 24, 45)
+    g.fillTriangle(42, 18, 24, 45, 42, 36)
+    g.fillStyle(0x4a3018)
+    g.fillRect(22, 27, 4, 18) // front edge
+    diamond(g, 24, 18, 36, 18, 0x8a6a3f) // top
+    g.generateTexture(TEX.crate, 48, 48)
 
     // --- player (32x48; anchor bottom-center) ---------------------------
     g.clear()
