@@ -49,11 +49,11 @@ not started).
   player is invisible to zombies — no detect/investigate/attack, indicator
   top-right); S.A.F.E. first-chase one-shot message; debug overlay lists
   per-zombie state + position. 111/111 tests green, tsc + build clean.
-- TEMP verification hooks: all removed in Chunk 33 (M3 used `?autostart`,
-  `?invtest`, `?nearcrate`). If you need them again, the patterns that
-  worked (see Environment note): sync scene.start in create() for
-  transitions, update-tick-based hooks (≤ ~150 ticks) for in-scene checks,
-  and document each hook here as it lands.
+- TEMP hooks (added in C36, remove ALL in C39): TitleScene `?autostart`
+  (sync start in create); GameScene `?combat` (teleports player 1.0 tile
+  from the nearest zombie; swings at that zombie at tick 25); one
+  `console.log('C36HOOK ...')` line in GameScene.doAttack. Keep
+  update-tick-based and documented here as they change.
 - Docs: README.md (run + controls), CHANGELOG.md (per-chunk history),
   PLAN.md (chunk plan, M1 + M2 + M3 with acceptance checklists; M4 drafted,
   chunks C34–C39).
@@ -180,6 +180,11 @@ freeze the world via early return; camera and debug overlay keep working.
   per-seed Image tint — distinct from the player's blue jacket (63,107,138).
 - Crate signature: top diamond (138,106,63), left face (107,74,42), right
   face (90,61,34); spent crates dim via setTint(0x555555).
+- M4: swing FX line + [E] prompt + HUD labels are #d8c9a0 (216,201,160);
+  groovy indicator text #c9a0d8; hit flash = zombie sprite tinted 0xffffff
+  for 0.12 s. Screenshot timing for the FX window: hook swing fires ~0.42 s
+  in, FX live ~0.1-0.12 s — for deterministic evidence use the console.log
+  TEMP hook + `--enable-logging=stderr` instead of chasing the pixel window.
 - HUD bars: health red (192,57,43), hunger orange (208,138,62), stamina
   green (92,154,80); both survival bars turn red (192,57,43) when
   STARVED/EXHAUSTED.

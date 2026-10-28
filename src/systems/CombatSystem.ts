@@ -19,6 +19,7 @@ export const HIT_STAGGER_S = 0.4 // frozen: no decisions, movement, attacks
 export const HIT_KNOCKBACK_TILES = 0.5
 export const ATTACK_AIM_RADIUS = 1.0 // zombie center within this of the click
 export const ATTACK_REACH = 1.5 // zombie within this of the player
+export const ATTACK_COOLDOWN_S = 0.7 // between swings (no full-auto)
 export const ZOMBIE_HEALTH_MIN = 30
 export const ZOMBIE_HEALTH_SPREAD = 31 // → 30..60
 

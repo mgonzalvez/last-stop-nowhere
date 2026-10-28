@@ -1,7 +1,7 @@
 import Phaser from 'phaser'
 import { worldMap, MAP_SIZE } from '../../world/WorldMap'
 import { TileType } from '../../world/TileTypes'
-import { setOrigin, tileToScreen, TILE_W, TILE_H } from '../../world/IsoProjection'
+import { setOrigin, tileToScreen, screenToTile, TILE_W, TILE_H } from '../../world/IsoProjection'
 import { createPlayer, SPRINT_MULT, type PlayerState } from '../../world/Player'
 import { createZombie, type ZombieState } from '../../world/Zombie'
 import {
@@ -13,7 +13,8 @@ import { ZOMBIE_SPAWNS, ZOMBIE_SEED } from '../../data/zombieSpawns'
 import { type InputState } from '../../systems/MovementSystem'
 import { moveWithCollision } from '../../systems/CollisionSystem'
 import { updateZombie, type ZombieContext } from '../../systems/ZombieAI'
-import { noiseRadius, NOISE_STILL } from '../../systems/Noise'
+import { noiseRadius, NOISE_STILL, NOISE_SWING } from '../../systems/Noise'
+import { pickAttackTarget, applyHit, swingDamage, ATTACK_COOLDOWN_S } from '../../systems/CombatSystem'
 import { tickSurvival, HUNGER_LOW_AT } from '../../systems/StatsSystem'
 import { useHotbarSlot } from '../../systems/ItemUse'
 import { openContainerLoot } from '../../systems/LootSystem'
@@ -48,14 +49,31 @@ const ROOF_FADE_PER_SEC = 4
 export class GameScene extends Phaser.Scene {
   private player!: PlayerState
   private playerSprite!: Phaser.GameObjects.Image
-  /** Milestone 2: zombie entities + sprites (AI lands in C18+). */
-  private zombies: { z: ZombieState; sprite: Phaser.GameObjects.Image }[] = []
+  /** Milestone 2: zombie entities + sprites (M4: per-seed tint + hit-flash countdown). */
+  private zombies: {
+    z: ZombieState
+    sprite: Phaser.GameObjects.Image
+    tint: number
+    flashS?: number
+  }[] = []
   /** Milestone 3: loot containers (C30) + [E] prompt. */
   private containers: { c: LootContainerState; sprite: Phaser.GameObjects.Image }[] = []
   private containerPrompt!: Phaser.GameObjects.Text
   /** Casual mode: zombies never detect or attack (C toggles). */
   private casual = false
   private casualText!: Phaser.GameObjects.Text
+  /** Milestone 4: groovy mode (G): weapon damage x2 (?groovy pre-sets). */
+  private groovy = false
+  private groovyText!: Phaser.GameObjects.Text
+  /** Milestone 4: attack cooldown, swing FX, kill count, swing noise pulse. */
+  private attackCooldownS = 0
+  private swingFx!: Phaser.GameObjects.Graphics
+  private swingFxS = 0
+  private kills = 0
+  private swingNoiseS = 0
+  /** TEMP ?combat hook state (remove in C39). */
+  private _combatHook: number | null = null
+  private _hookTick = 0
   /** Milestone 2: player health HUD + death state. */
   private dead = false
   private healthBar!: Phaser.GameObjects.Container
@@ -94,6 +112,7 @@ export class GameScene extends Phaser.Scene {
     R: Phaser.Input.Keyboard.Key
     T: Phaser.Input.Keyboard.Key
     C: Phaser.Input.Keyboard.Key
+    G: Phaser.Input.Keyboard.Key
     E: Phaser.Input.Keyboard.Key
     F3: Phaser.Input.Keyboard.Key
     ESC: Phaser.Input.Keyboard.Key
@@ -123,7 +142,7 @@ export class GameScene extends Phaser.Scene {
     this.setupCamera()
     this.buildPauseOverlay()
     this.keys = this.input.keyboard!.addKeys(
-      'W,A,S,D,R,T,C,E,F3,ESC,UP,DOWN,LEFT,RIGHT,SHIFT,I',
+      'W,A,S,D,R,T,C,G,E,F3,ESC,UP,DOWN,LEFT,RIGHT,SHIFT,I',
     ) as unknown as GameScene['keys']
     this.hotbarKeys = [
       Phaser.Input.Keyboard.KeyCodes.ONE,
@@ -154,10 +173,47 @@ export class GameScene extends Phaser.Scene {
     this.showTutorial(deliver(this.tutorial, 'welcome'))
 
     this.buildCasualIndicator()
+    // Milestone 4: groovy mode (?groovy pre-sets the G toggle).
+    this.groovy = new URLSearchParams(window.location.search).has('groovy')
+    this.buildGroovyIndicator()
+    // Milestone 4: swing FX layer (tick-cleared; line primitives only —
+    // canvas-fallback safe).
+    this.swingFx = this.add.graphics().setDepth(3000)
+    // Left-click aims a swing at the clicked tile (M4).
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      if (p.leftButtonDown()) this.onAttackClick()
+    })
     this.buildHealthBar()
     this.buildSurvivalBars()
     this.inventory = createInventory(STARTING_ITEMS)
     this.buildInventoryOverlay()
+
+    // TEMP verification hook (remove in C39): ?combat — stand the player 1.0
+    // tile from the nearest zombie so a headless run can screenshot the
+    // combat pipeline (the swing itself fires at tick 25 in update()).
+    if (new URLSearchParams(window.location.search).has('combat')) {
+      const near = this.nearestZombieTo(this.player.x, this.player.y)
+      if (near) {
+        for (const [dx, dy] of [
+          [1, 0],
+          [0, 1],
+          [-1, 0],
+          [0, -1],
+        ] as const) {
+          const px = Math.round(near.z.x + dx)
+          const py = Math.round(near.z.y + dy)
+          if (worldMap.isPassable(px, py)) {
+            this.player.x = px
+            this.player.y = py
+            const s = tileToScreen(px, py)
+            this.playerSprite.setPosition(s.x, s.y + TILE_H / 2)
+            this.playerSprite.setDepth(depthFor(px, py))
+            this._combatHook = near.z.id
+            break
+          }
+        }
+      }
+    }
   }
 
   /** Milestone 2: spawn the fixed zombie set (wander from C18+). */
@@ -166,12 +222,13 @@ export class GameScene extends Phaser.Scene {
     ZOMBIE_SPAWNS.forEach(([x, y], i) => {
       const z = createZombie(i, x, y, ZOMBIE_SEED + i)
       const s = tileToScreen(z.x, z.y)
+      const tint = tints[z.seed % tints.length]
       const sprite = this.add
         .image(s.x, s.y + TILE_H / 2, TEX.zombie)
         .setOrigin(0.5, 1)
         .setDepth(depthFor(z.x, z.y))
-        .setTint(tints[z.seed % tints.length])
-      this.zombies.push({ z, sprite })
+        .setTint(tint)
+      this.zombies.push({ z, sprite, tint })
     })
   }
 
@@ -194,6 +251,27 @@ export class GameScene extends Phaser.Scene {
   private toggleCasual(): void {
     this.casual = !this.casual
     this.casualText.setVisible(this.casual)
+  }
+
+  /** M4: "GROOVY" indicator, pinned under the casual one (top-right). */
+  private buildGroovyIndicator(): void {
+    this.groovyText = this.add
+      .text(0, 0, 'GROOVY', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#c9a0d8',
+        backgroundColor: '#15171e',
+        padding: { x: 8, y: 4 },
+      })
+      .setOrigin(1, 0)
+      .setDepth(4000)
+      .setVisible(this.groovy)
+  }
+
+  /** G toggles groovy mode: weapon damage x2 (Ash-approved). */
+  private toggleGroovy(): void {
+    this.groovy = !this.groovy
+    this.groovyText.setVisible(this.groovy)
   }
 
   /** Pause overlay: dim + PAUSED text, frozen at the view center. */
@@ -282,6 +360,15 @@ export class GameScene extends Phaser.Scene {
         cam.scrollY + 10,
       )
     }
+    // Groovy mode (G) — works even while paused (M4).
+    if (Phaser.Input.Keyboard.JustDown(this.keys.G)) this.toggleGroovy()
+    if (this.groovy) {
+      const cam = this.cameras.main
+      this.groovyText.setPosition(
+        cam.scrollX + this.scale.width - 10,
+        cam.scrollY + 34,
+      )
+    }
     if (this.debugVisible) {
       this._dbgTick++
       if (this._dbgTick % 6 === 0) this.updateDebug() // ~10Hz text refresh
@@ -309,6 +396,21 @@ export class GameScene extends Phaser.Scene {
     if (this.paused) {
       if (Phaser.Input.Keyboard.JustDown(this.keys.R)) this.scene.restart()
       return
+    }
+    // Milestone 4: attack cooldown + swing FX countdown (tick-based).
+    this.attackCooldownS = Math.max(0, this.attackCooldownS - delta / 1000)
+    if (this.swingFxS > 0) {
+      this.swingFxS -= delta / 1000
+      if (this.swingFxS <= 0) this.swingFx.clear()
+    }
+    // TEMP verification hook (remove in C39): ?combat swings at the flagged
+    // zombie ~0.4s in, so a headless run can capture the hit pipeline.
+    if (this._combatHook !== null) {
+      if (++this._hookTick === 25) {
+        const e = this.zombies.find((x) => x.z.id === this._combatHook)
+        if (e) this.doAttack(e.z.x, e.z.y)
+        this._combatHook = null
+      }
     }
     // Milestone 3: hotbar 1-8 uses a consumable (carry-only items stay put).
     for (let i = 0; i < this.hotbarKeys.length; i++) {
@@ -416,18 +518,33 @@ export class GameScene extends Phaser.Scene {
   /** Milestone 2: zombies wander (C18), investigate noise (C19). */
   private updateZombies(dt: number, input: InputState, sprinting: boolean): void {
     const moving = input.up || input.down || input.left || input.right
+    // M4: a recent swing adds a one-shot noise pulse (zombies investigate).
+    let noise = this.casual ? NOISE_STILL : noiseRadius(moving, sprinting)
+    if (this.swingNoiseS > 0) {
+      this.swingNoiseS = Math.max(0, this.swingNoiseS - dt)
+      if (!this.casual) noise = Math.max(noise, NOISE_SWING)
+    }
     const ctx: ZombieContext = {
       playerX: this.player.x,
       playerY: this.player.y,
-      noiseRadius: this.casual ? NOISE_STILL : noiseRadius(moving, sprinting),
+      noiseRadius: noise,
       casual: this.casual,
     }
     let damage = 0
-    for (const { z, sprite } of this.zombies) {
+    for (const e of this.zombies) {
+      const { z, sprite, tint } = e
       damage += updateZombie(z, passableTile, dt, ctx)
       const s = tileToScreen(z.x, z.y)
       sprite.setPosition(s.x, s.y + TILE_H / 2)
       sprite.setDepth(depthFor(z.x, z.y))
+      // M4: hit-flash countdown (tick-based, headless-safe)
+      if (e.flashS !== undefined) {
+        e.flashS -= dt
+        if (e.flashS <= 0) {
+          e.flashS = undefined
+          sprite.setTint(tint)
+        }
+      }
     }
     if (damage > 0) {
       this.player.health = Math.max(0, this.player.health - damage)
@@ -439,6 +556,114 @@ export class GameScene extends Phaser.Scene {
       ({ z }) => z.state === 'CHASE' || z.state === 'ATTACK',
     )
     if (threatened) this.showTutorial(deliver(this.tutorial, 'zombie.chased'))
+  }
+
+  /** M4: left-click → tile → swing at the targeted zombie. */
+  private onAttackClick(): void {
+    if (this.dead || this.paused || this.inventoryOpen || this.casual) return
+    if (this.attackCooldownS > 0) return
+    const cam = this.cameras.main
+    const p = this.input.activePointer
+    // camera-space pointer → world px → logical tile (screenToTile is the
+    // exact inverse of tileToScreen)
+    const t = screenToTile(
+      cam.scrollX + p.x / cam.zoom,
+      cam.scrollY + p.y / cam.zoom,
+    )
+    this.doAttack(t.x, t.y)
+  }
+
+  /** M4: swing at the zombie nearest the click (whiff = no swing, no noise). */
+  private doAttack(clickX: number, clickY: number): void {
+    const zombies = this.zombies.map((e) => e.z)
+    const target = pickAttackTarget(this.player, zombies, clickX, clickY)
+    if (!target) return
+    this.attackCooldownS = ATTACK_COOLDOWN_S
+    this.swingNoiseS = 0.25 // one-shot noise pulse (updateZombies applies it)
+    const swing = swingDamage(this.inventory, this.groovy)
+    const r = applyHit(
+      target,
+      swing.damage,
+      this.player.x,
+      this.player.y,
+      passableTile,
+    )
+    this.playSwingFx(clickX, clickY)
+    const entry = this.zombies.find((e) => e.z === target)
+    if (entry) entry.flashS = 0.12 // hit flash (restored in updateZombies)
+    if (r.dead) {
+      this.kills += 1
+      this.fadeOutZombie(target)
+    }
+    // TEMP verification hook (remove in C39): deterministic pipeline evidence.
+    console.log(
+      'C36HOOK swing -> z' + target.id + ' dmg=' + swing.damage +
+        ' dead=' + r.dead + ' groovy=' + this.groovy,
+    )
+  }
+
+  /** M4: short arc of line segments from the player toward the click. */
+  private playSwingFx(clickX: number, clickY: number): void {
+    const g = this.swingFx
+    g.clear()
+    const from = tileToScreen(this.player.x, this.player.y)
+    const to = tileToScreen(clickX, clickY)
+    const fx = from.x
+    const fy = from.y + TILE_H / 2
+    const ang = Math.atan2(to.y + TILE_H / 2 - fy, to.x - fx)
+    g.lineStyle(3, 0xd8c9a0, 0.9)
+    for (let i = 0; i < 4; i++) {
+      const a = ang - 0.45 + (i / 3) * 0.9 // ~51-degree fan
+      g.lineBetween(
+        fx + Math.cos(a) * 14,
+        fy + Math.sin(a) * 14,
+        fx + Math.cos(a) * 34,
+        fy + Math.sin(a) * 34,
+      )
+    }
+    this.swingFxS = 0.1
+  }
+
+  /** M4: dead zombie leaves the authoritative state immediately; the
+   *  sprite is scene-only FX that fades out and is destroyed. */
+  private fadeOutZombie(z: ZombieState): void {
+    const idx = this.zombies.findIndex((e) => e.z === z)
+    if (idx === -1) return
+    const sprite = this.zombies[idx].sprite
+    this.zombies.splice(idx, 1)
+    this.tweens.add({
+      targets: sprite,
+      alpha: 0,
+      duration: 500,
+      onComplete: () => sprite.destroy(),
+    })
+  }
+
+  /** M4: nearest zombie to a tile point (used by the ?combat TEMP hook). */
+  private nearestZombieTo(
+    x: number,
+    y: number,
+  ): {
+      z: ZombieState
+      sprite: Phaser.GameObjects.Image
+      tint: number
+      flashS?: number
+    } | null {
+    let best: {
+      z: ZombieState
+      sprite: Phaser.GameObjects.Image
+      tint: number
+      flashS?: number
+    } | null = null
+    let dist = Infinity
+    for (const e of this.zombies) {
+      const d = Math.hypot(e.z.x - x, e.z.y - y)
+      if (d < dist) {
+        best = e
+        dist = d
+      }
+    }
+    return best
   }
 
   /** Small health bar pinned to the view top-left. */

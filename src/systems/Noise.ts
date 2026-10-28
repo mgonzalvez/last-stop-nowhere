@@ -5,6 +5,8 @@
 export const NOISE_STILL = 0
 export const NOISE_MOVING = 5
 export const NOISE_SPRINT = 9
+/** M4: every weapon swing makes this much noise (fighting draws them). */
+export const NOISE_SWING = 6
 
 export function noiseRadius(moving: boolean, sprinting = false): number {
   if (!moving) return NOISE_STILL
