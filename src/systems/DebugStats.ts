@@ -11,6 +11,10 @@ export interface DebugStatsInput {
   casual?: boolean
   /** Per-zombie FSM state + tile position (Milestone 2). */
   zombies?: Array<{ id: number; state: string; x: number; y: number }>
+  /** Survival stats + loot containers (Milestone 3). */
+  hunger?: number
+  stamina?: number
+  containers?: Array<{ id: number; location: string; looted: boolean }>
 }
 
 export function formatDebugStats(s: DebugStatsInput): string {
@@ -22,9 +26,21 @@ export function formatDebugStats(s: DebugStatsInput): string {
     s.renderer,
   ]
   if (s.casual) lines.push('CASUAL')
+  if (s.hunger !== undefined && s.stamina !== undefined) {
+    lines.push(
+      'hunger ' + Math.ceil(s.hunger) + '  stamina ' + Math.ceil(s.stamina),
+    )
+  }
   if (s.zombies) {
     for (const z of s.zombies) {
       lines.push('z' + z.id + ' ' + z.state + ' @' + z.x.toFixed(1) + ',' + z.y.toFixed(1))
+    }
+  }
+  if (s.containers) {
+    for (const c of s.containers) {
+      lines.push(
+        'c' + c.id + ' ' + c.location.toUpperCase() + (c.looted ? ' looted' : ''),
+      )
     }
   }
   return lines.join('\n')

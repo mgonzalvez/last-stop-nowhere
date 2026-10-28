@@ -119,6 +119,24 @@ describe('tickSurvival — purity', () => {
   })
 })
 
+describe('tickSurvival — casual mode (hunger frozen)', () => {
+  it('freezes hunger (no decay) while keeping stamina active', () => {
+    const p = createPlayer(0, 0)
+    const t = tickSurvival(p, 60, true, true) // 1 min, sprinting, casual
+    expect(t.player.hunger).toBe(MAX_HUNGER)
+    expect(t.player.stamina).toBeLessThan(MAX_STAMINA) // stamina still drains
+  })
+
+  it('no starvation damage even at zero hunger (threat-free)', () => {
+    const p = createPlayer(0, 0)
+    p.hunger = 0
+    const t = tickSurvival(p, 30, false, true)
+    expect(t.starving).toBe(false)
+    expect(t.player.health).toBe(MAX_HEALTH)
+    expect(t.player.hunger).toBe(0) // frozen, not magically refilled
+  })
+})
+
 describe('applyItem', () => {
   it('food restores hunger (canned soup +40)', () => {
     const p = createPlayer(0, 0)

@@ -11,6 +11,7 @@ export type TutorialEvent =
   | 'first.eat'
   | 'first.heal'
   | 'first.loot'
+  | 'hunger.low'
 // Future events (one message each, delivered when the event fires):
 // | 'hunger.low' | 'firstBuilding' | 'firstDoor' | ...
 
@@ -58,5 +59,13 @@ export const TUTORIAL_MESSAGES: TutorialMessage[] = [
       'You are searching a container. Please note that nothing in Nowhere '
       + 'is signed, sealed, or owned. Property is, for administrative '
       + 'reasons, a rumor.',
+  },
+  {
+    id: 'safe.hunger',
+    event: 'hunger.low',
+    text:
+      'Advisory: your hunger level has entered the "concerned" range. The '
+      + 'municipal pantry is located directly behind your left shoulder, in '
+      + 'the direction you are least likely to look. We wish you luck.',
   },
 ]

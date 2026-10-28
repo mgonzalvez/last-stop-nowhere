@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { formatDebugStats } from '../src/systems/DebugStats'
+import { TUTORIAL_MESSAGES, type TutorialEvent } from '../src/data/tutorialMessages'
+import { createTutorialState, deliver } from '../src/systems/TutorialSystem'
 
 describe('formatDebugStats', () => {
   it('renders all five fields on separate lines', () => {
@@ -53,5 +55,63 @@ describe('debug overlay zombie lines (C23)', () => {
       renderer: 'canvas',
     })
     expect(out.split('\n')).toHaveLength(5)
+  })
+})
+
+describe('debug overlay survival + container lines (C32)', () => {
+  it('shows hunger/stamina and one line per container', () => {
+    const out = formatDebugStats({
+      fps: 60,
+      tileX: 20,
+      tileY: 24,
+      worldX: -128,
+      worldY: 720,
+      entityCount: 10,
+      renderer: 'canvas',
+      hunger: 82.4,
+      stamina: 55.9,
+      containers: [
+        { id: 0, location: 'kitchen', looted: false },
+        { id: 3, location: 'store', looted: true },
+      ],
+    })
+    const lines = out.split('\n')
+    expect(lines).toContain('hunger 83  stamina 56')
+    expect(lines).toContain('c0 KITCHEN')
+    expect(lines).toContain('c3 STORE looted')
+  })
+
+  it('omits the new lines when not provided (M2 callers unaffected)', () => {
+    const out = formatDebugStats({
+      fps: 60,
+      tileX: 20,
+      tileY: 24,
+      worldX: -128,
+      worldY: 720,
+      entityCount: 10,
+      renderer: 'canvas',
+    })
+    expect(out).not.toContain('hunger')
+    expect(out).not.toContain('c0')
+  })
+})
+
+describe('S.A.F.E. catalog (M3 events)', () => {
+  it('has exactly one message per M3 event with non-empty text', () => {
+    const events: TutorialEvent[] = ['first.eat', 'first.heal', 'first.loot', 'hunger.low']
+    for (const event of events) {
+      const msgs = TUTORIAL_MESSAGES.filter((m) => m.event === event)
+      expect(msgs, event).toHaveLength(1)
+      expect(msgs[0].text.length).toBeGreaterThan(20)
+    }
+  })
+
+  it('delivers each M3 event once (one-shot)', () => {
+    const events: TutorialEvent[] = ['first.eat', 'first.heal', 'first.loot', 'hunger.low']
+    for (const event of events) {
+      const t = createTutorialState()
+      expect(deliver(t, event)).not.toBeNull()
+      expect(deliver(t, event)).toBeNull()
+    }
   })
 })

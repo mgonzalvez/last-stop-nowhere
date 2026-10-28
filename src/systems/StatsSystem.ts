@@ -20,6 +20,7 @@ export const STARVATION_DAMAGE_PER_S = 2 // health loss per s while hunger is 0
 export const SPRINT_DRAIN_PER_S = 30 // ~3.3 s of sprinting from full
 export const STAMINA_REGEN_PER_S = 20
 export const SPRINT_REENABLE_AT = 20 // latch clears once stamina regens here
+export const HUNGER_LOW_AT = 25 // S.A.F.E. advisory threshold (M3)
 
 export interface SurvivalTick {
   player: PlayerState
@@ -34,10 +35,14 @@ export function tickSurvival(
   player: PlayerState,
   dt: number,
   sprinting: boolean,
+  hungerFrozen = false, // casual mode: no decay, no starvation
 ): SurvivalTick {
   // Hunger always decays; starvation drains health once it hits 0.
-  const hunger = clamp(player.hunger - HUNGER_DECAY_PER_S * dt, 0, MAX_HUNGER)
-  const starving = hunger <= 0
+  // Casual mode freezes the whole hunger axis (pure sightseeing).
+  const hunger = hungerFrozen
+    ? player.hunger
+    : clamp(player.hunger - HUNGER_DECAY_PER_S * dt, 0, MAX_HUNGER)
+  const starving = !hungerFrozen && hunger <= 0
   const health = starving
     ? clamp(player.health - STARVATION_DAMAGE_PER_S * dt, 0, MAX_HEALTH)
     : player.health

@@ -14,7 +14,7 @@ import { type InputState } from '../../systems/MovementSystem'
 import { moveWithCollision } from '../../systems/CollisionSystem'
 import { updateZombie, type ZombieContext } from '../../systems/ZombieAI'
 import { noiseRadius, NOISE_STILL } from '../../systems/Noise'
-import { tickSurvival } from '../../systems/StatsSystem'
+import { tickSurvival, HUNGER_LOW_AT } from '../../systems/StatsSystem'
 import { useHotbarSlot } from '../../systems/ItemUse'
 import { openContainerLoot } from '../../systems/LootSystem'
 import { createInventory, type Inventory } from '../../world/Inventory'
@@ -345,12 +345,21 @@ export class GameScene extends Phaser.Scene {
     this.playerSprite.setDepth(depthFor(this.player.x, this.player.y))
     this.updateZombies(delta / 1000, input, sprinting)
     // Milestone 3: survival tick (hunger/stamina/starvation). Starvation can
-    // finish the player off the same way zombie damage does.
-    const survival = tickSurvival(this.player, delta / 1000, sprinting)
+    // finish the player off the same way zombie damage does. Casual mode
+    // freezes the hunger axis entirely.
+    const survival = tickSurvival(
+      this.player,
+      delta / 1000,
+      sprinting,
+      this.casual,
+    )
     this.player = survival.player
     if (this.player.health <= 0 && !this.dead) this.die()
     this.updateHealthBar()
     this.updateSurvivalBars(survival.starving, survival.exhausted)
+    if (this.player.hunger < HUNGER_LOW_AT) {
+      this.showTutorial(deliver(this.tutorial, 'hunger.low'))
+    }
     this.updateRoofs(delta)
   }
 
@@ -718,11 +727,18 @@ export class GameScene extends Phaser.Scene {
           renderer:
             this.game.renderer.type === Phaser.WEBGL ? 'webgl' : 'canvas',
           casual: this.casual,
+          hunger: this.player.hunger,
+          stamina: this.player.stamina,
           zombies: this.zombies.map(({ z }) => ({
             id: z.id,
             state: z.state,
             x: z.x,
             y: z.y,
+          })),
+          containers: this.containers.map(({ c }) => ({
+            id: c.id,
+            location: c.location,
+            looted: c.looted,
           })),
         }),
       )
