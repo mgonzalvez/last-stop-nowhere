@@ -10,6 +10,8 @@ import { moveWithCollision } from '../../systems/CollisionSystem'
 import { updateZombie, type ZombieContext } from '../../systems/ZombieAI'
 import { noiseRadius, NOISE_STILL } from '../../systems/Noise'
 import { tickSurvival } from '../../systems/StatsSystem'
+import { createInventory, type Inventory } from '../../world/Inventory'
+import { STARTING_ITEMS, getItem } from '../../data/items'
 import {
   createTutorialState,
   deliver,
@@ -56,6 +58,11 @@ export class GameScene extends Phaser.Scene {
   private staminaBar!: Phaser.GameObjects.Container
   private staminaFill!: Phaser.GameObjects.Rectangle
   private staminaText!: Phaser.GameObjects.Text
+  /** Milestone 3: inventory (16 slots) + overlay UI. */
+  private inventory!: Inventory
+  private inventoryOpen = false
+  private inventoryOverlay!: Phaser.GameObjects.Container
+  private inventorySlotTexts: Phaser.GameObjects.Text[] = []
   private deathOverlay!: Phaser.GameObjects.Container
   private roofIndex!: BuildingIndex
   private roofByBuilding = new Map<number, Phaser.GameObjects.Image[]>()
@@ -82,6 +89,7 @@ export class GameScene extends Phaser.Scene {
     LEFT: Phaser.Input.Keyboard.Key
     RIGHT: Phaser.Input.Keyboard.Key
     SHIFT: Phaser.Input.Keyboard.Key
+    I: Phaser.Input.Keyboard.Key
   }
 
   constructor() {
@@ -101,7 +109,7 @@ export class GameScene extends Phaser.Scene {
     this.setupCamera()
     this.buildPauseOverlay()
     this.keys = this.input.keyboard!.addKeys(
-      'W,A,S,D,R,T,C,F3,ESC,UP,DOWN,LEFT,RIGHT,SHIFT',
+      'W,A,S,D,R,T,C,F3,ESC,UP,DOWN,LEFT,RIGHT,SHIFT,I',
     ) as unknown as GameScene['keys']
 
     // Debug overlay (F3): FPS, tile coords, world pos, entity count, renderer.
@@ -124,6 +132,12 @@ export class GameScene extends Phaser.Scene {
     this.buildCasualIndicator()
     this.buildHealthBar()
     this.buildSurvivalBars()
+    this.inventory = createInventory(STARTING_ITEMS)
+    this.buildInventoryOverlay()
+
+    // TEMP verification hook (remove in C33): ?invtest opens the inventory
+    // overlay on start so a headless run can screenshot it.
+    if (window.location.search.includes('invtest')) this.toggleInventory(true)
   }
 
   /** Milestone 2: spawn the fixed zombie set (wander from C18+). */
@@ -257,6 +271,18 @@ export class GameScene extends Phaser.Scene {
       if (Phaser.Input.Keyboard.JustDown(this.keys.R)) this.scene.restart()
       return
     }
+    // Milestone 3: inventory overlay (I opens; I or ESC closes). The world
+    // freezes while it is open (same early-return as pause).
+    if (this.inventoryOpen) {
+      if (
+        Phaser.Input.Keyboard.JustDown(this.keys.I) ||
+        Phaser.Input.Keyboard.JustDown(this.keys.ESC)
+      ) {
+        this.toggleInventory(false)
+      }
+      return
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.I)) this.toggleInventory(true)
     // Pause controls work in both states; the world freezes while paused.
     if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) this.togglePause()
     if (Phaser.Input.Keyboard.JustDown(this.keys.T)) this.toggleTutorial()
@@ -391,6 +417,85 @@ export class GameScene extends Phaser.Scene {
     this.staminaText.setText(
       exhausted ? 'EXHAUSTED' : `${Math.ceil(this.player.stamina)} / 100`,
     )
+  }
+
+  /** Milestone 3: 4x4 grid overlay; slots 1-8 are the hotbar. */
+  private buildInventoryOverlay(): void {
+    const mid = this.cameras.main.midPoint
+    const SLOT = 56
+    const GAP = 8
+    const gridW = 4 * SLOT + 3 * GAP
+    const left = mid.x - gridW / 2
+    const top = mid.y - 120
+    const dim = this.add.rectangle(mid.x, mid.y, 8192, 8192, 0x000000, 0.55)
+    const title = this.add
+      .text(mid.x, mid.y - 152, 'INVENTORY', {
+        fontFamily: 'monospace',
+        fontSize: '28px',
+        fontStyle: 'bold',
+        color: '#c9b189',
+      })
+      .setOrigin(0.5)
+    const hint = this.add
+      .text(mid.x, mid.y + 168, '1-8 use item   ·   I / ESC close', {
+        fontFamily: 'monospace',
+        fontSize: '15px',
+        color: '#9a9a92',
+      })
+      .setOrigin(0.5)
+    const kids: Phaser.GameObjects.GameObject[] = [dim, title, hint]
+    for (let i = 0; i < 16; i++) {
+      const cx = left + SLOT / 2 + (i % 4) * (SLOT + GAP)
+      const cy = top + SLOT / 2 + Math.floor(i / 4) * (SLOT + GAP)
+      kids.push(
+        this.add.rectangle(cx, cy, SLOT + 4, SLOT + 4, 0x3a4030).setOrigin(0.5),
+        this.add.rectangle(cx, cy, SLOT, SLOT, 0x1c1f26).setOrigin(0.5),
+      )
+      if (i < 8) {
+        kids.push(
+          this.add
+            .text(cx - SLOT / 2 + 8, cy - SLOT / 2 + 8, String(i + 1), {
+              fontFamily: 'monospace',
+              fontSize: '11px',
+              color: '#9ad0a0',
+            })
+            .setOrigin(0),
+        )
+      }
+      const label = this.add
+        .text(cx, cy, '', {
+          fontFamily: 'monospace',
+          fontSize: '11px',
+          color: '#d8c9a0',
+          align: 'center',
+          wordWrap: { width: SLOT - 8 },
+        })
+        .setOrigin(0.5)
+      this.inventorySlotTexts.push(label)
+      kids.push(label)
+    }
+    this.inventoryOverlay = this.add
+      .container(0, 0, kids)
+      .setDepth(2500)
+      .setVisible(false)
+  }
+
+  private toggleInventory(open: boolean): void {
+    this.inventoryOpen = open
+    this.inventoryOverlay.setVisible(open)
+    if (open) this.refreshInventoryOverlay()
+  }
+
+  private refreshInventoryOverlay(): void {
+    this.inventorySlotTexts.forEach((t, i) => {
+      const slot = this.inventory[i]
+      if (!slot) {
+        t.setText('')
+        return
+      }
+      const item = getItem(slot.itemId)
+      t.setText(`${item ? item.name : slot.itemId}\n\u00d7 ${slot.qty}`)
+    })
   }
 
   /** Death: the world freezes; R restarts the run. */
