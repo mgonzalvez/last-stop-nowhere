@@ -11,6 +11,8 @@ export interface ItemDef {
   maxStack: number
   hungerRestore: number // 0 if the item does not restore hunger
   healthRestore: number // 0 if the item does not restore health
+  damage?: number // set on weapons (M4); undefined = not a weapon
+  maxDurability?: number // set on weapons (M4); undefined = unbreakable
 }
 
 export const ITEMS: readonly ItemDef[] = [
@@ -21,12 +23,12 @@ export const ITEMS: readonly ItemDef[] = [
   // Medical (maxStack 5)
   { id: 'bandage', name: 'Bandage', category: 'medical', maxStack: 5, hungerRestore: 0, healthRestore: 25 },
   { id: 'painkiller', name: 'Painkillers', category: 'medical', maxStack: 5, hungerRestore: 0, healthRestore: 50 },
-  // Tools (maxStack 1, carry-only in M3)
-  { id: 'kitchen_knife', name: 'Kitchen knife', category: 'tool', maxStack: 1, hungerRestore: 0, healthRestore: 0 },
+  // Tools (maxStack 1, carry-only in M3; weapons in M4: damage / durability)
+  { id: 'kitchen_knife', name: 'Kitchen knife', category: 'tool', maxStack: 1, hungerRestore: 0, healthRestore: 0, damage: 9, maxDurability: 40 },
   { id: 'flashlight', name: 'Flashlight', category: 'tool', maxStack: 1, hungerRestore: 0, healthRestore: 0 },
-  { id: 'crowbar', name: 'Crowbar', category: 'tool', maxStack: 1, hungerRestore: 0, healthRestore: 0 },
-  { id: 'hammer', name: 'Hammer', category: 'tool', maxStack: 1, hungerRestore: 0, healthRestore: 0 },
-  { id: 'baseball_bat', name: 'Baseball bat', category: 'tool', maxStack: 1, hungerRestore: 0, healthRestore: 0 },
+  { id: 'crowbar', name: 'Crowbar', category: 'tool', maxStack: 1, hungerRestore: 0, healthRestore: 0, damage: 17, maxDurability: 20 },
+  { id: 'hammer', name: 'Hammer', category: 'tool', maxStack: 1, hungerRestore: 0, healthRestore: 0, damage: 20, maxDurability: 18 },
+  { id: 'baseball_bat', name: 'Baseball bat', category: 'tool', maxStack: 1, hungerRestore: 0, healthRestore: 0, damage: 14, maxDurability: 25 },
   // Resources (maxStack 10, carry-only in M3)
   { id: 'nails', name: 'Nails', category: 'resource', maxStack: 10, hungerRestore: 0, healthRestore: 0 },
   { id: 'planks', name: 'Wooden planks', category: 'resource', maxStack: 10, hungerRestore: 0, healthRestore: 0 },
@@ -38,6 +40,13 @@ const BY_ID = new Map(ITEMS.map((item) => [item.id, item]))
 
 export function getItem(id: string): ItemDef | undefined {
   return BY_ID.get(id)
+}
+
+/** A weapon is any item with a damage value (type predicate: narrows both). */
+export function isWeapon(
+  item: ItemDef,
+): item is ItemDef & { damage: number; maxDurability: number } {
+  return item.damage !== undefined
 }
 
 /** Starting inventory (per brief §8): one of each. */

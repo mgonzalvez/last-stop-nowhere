@@ -3,13 +3,14 @@
 // empty slot. Mutated in place (world state, like Zombie); the scene reads
 // it for the overlay and hotbar.
 
-import { getItem } from '../data/items'
+import { getItem, isWeapon } from '../data/items'
 
 export const INVENTORY_SIZE = 16
 
 export interface InventorySlot {
   itemId: string
   qty: number
+  durability?: number // weapons only (M4): hits left; undefined = unbreakable
 }
 
 export type Inventory = (InventorySlot | null)[]
@@ -42,7 +43,9 @@ export function add(inv: Inventory, itemId: string, qty: number): number {
   for (let i = 0; i < inv.length && remaining > 0; i++) {
     if (inv[i] === null) {
       const take = Math.min(item.maxStack, remaining)
-      inv[i] = { itemId, qty: take }
+      inv[i] = isWeapon(item)
+        ? { itemId, qty: take, durability: item.maxDurability }
+        : { itemId, qty: take }
       remaining -= take
     }
   }

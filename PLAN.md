@@ -437,6 +437,11 @@ uneasy: one zombie is killable, a crowd still wins.
   position (new `NOISE_SWING`) — other zombies investigate. Fighting draws
   the dead; pillar B in one number.
 - **Casual (C)**: threat-free in both directions — attacks are ignored.
+- **Groovy mode (G)**: a runtime setting toggle (same pattern as casual,
+  top-right indicator; `?groovy` URL param for headless runs). Effect:
+  weapon damage ×2 (`GROOVY_DAMAGE_MULT = 2`). Bare hands are NOT affected
+  (they were never weapons), durability is NOT affected, and nothing else
+  changes. Pure side: `swingDamage(inv, groovy)`.
 - **S.A.F.E.**: two new one-shots — `first.kill`, `weapon.broke`.
 - **Feedback**: death overlay shows kills; debug overlay shows held weapon +
   per-zombie health; swing FX = short arc of line segments toward the click
@@ -447,15 +452,16 @@ uneasy: one zombie is killable, a crowd still wins.
 ## New / changed files
 
 - `src/data/items.ts` — add optional `damage` / `maxDurability` to the four
-  weapon tool items; `isWeapon(item)` helper.
+  weapon tool items; `isWeapon(item)` helper (type predicate).
 - `src/world/Inventory.ts` — slots track `durability` for weapons (set from
   `item.maxDurability` when the item is added).
 - `src/world/Zombie.ts` — state gains `health` (seeded in `createZombie`)
   and `staggerS` (seconds remaining).
 - `src/systems/CombatSystem.ts` (new, pure) — `heldWeapon(inv)`,
   `pickAttackTarget(player, zombies, clickX, clickY)`, `applyHit(zombie,
-  damage, fromX, fromY)`, `zombieHealth(id)`, `applySwingCost(inv, slot)`
-  (durability decrement + break), constants.
+  damage, fromX, fromY)`, `zombieHealth(id)`, `applySwingCost(inv, slot)` (durability decrement +
+break), `heldWeapon(inv)`, `swingDamage(inv, groovy)` (×2 in groovy mode,
+unarmed untouched), constants.
 - `src/systems/ZombieAI.ts` — while `staggerS > 0`: decrement, skip
   decision/movement/attack; otherwise unchanged.
 - `src/systems/Noise.ts` — add `NOISE_SWING = 6`.
@@ -468,14 +474,22 @@ uneasy: one zombie is killable, a crowd still wins.
 
 ## Chunk 34 — Weapon data + durability slots + held weapon (pure + tests)
 
+Add `damage`/`maxDurability` to the four weapon items + `isWeapon`. `Groovy
+mode` lands here in its pure form: `swingDamage(inv, groovy)` applies
+`GROOVY_DAMAGE_MULT = 2` to weapon damage only (unarmed stays 5). The G-key
+toggle + indicator + `?groovy` URL param are scene concerns → C36.
+
+  pure + tests).
+
 Add `damage`/`maxDurability` to the four weapon items + `isWeapon`.
 `Inventory`: slots carry `durability` for weapons (initialized on `add`;
 other items unaffected — existing inventory tests still pass with an
 optional field). `CombatSystem.ts` (new): `heldWeapon(inv)` → first weapon
-in slot order (null if none) + `UNARMED_DAMAGE = 5`. Verify: tsc; tests
-(held weapon picks slot 0 weapon first, skips non-weapons, null with none;
-durability initialized from item def; adding a second unit of the same
-weapon into a stack-less slot is unchanged behavior); build.
+in slot order (null if none) + `UNARMED_DAMAGE = 5`.
+Verify: tsc; tests (held weapon picks slot 0 weapon first, skips
+non-weapons, null with none; durability initialized from item def; adding a
+second unit of the same weapon into a stack-less slot is unchanged
+behavior); build.
 
 ## Chunk 35 — Zombie health + hit reaction (pure + tests)
 
@@ -494,15 +508,17 @@ decisions while staggered, resumes after); build.
 
 GameScene: track mouse tile (scene → camera → `screenToTile`), left-click
 → if not casual, not paused/dead/inv-open and cooldown elapsed: pick
-target with `pickAttackTarget`; if a target: `applyHit`, held weapon or
-unarmed damage, swing arc FX toward the click (3–4 line segments, ~100 ms),
-zombie hit flash (tint + revert), noise pulse (radius 6) fed to the AI so
-neighbors investigate, and on death → 0.5 s `fadeOut` then `remove` from
-the zombies array + kill counter. Casual mode ignores clicks. TEMP
-verification hooks (remove in C39): `?combat` (place player beside two
-zombies for a headless screenshot) — tick-based, documented in AGENTS.md.
-Verify: tsc; `npm test` green; build; headless screenshot shows swing FX /
-hit zombie; no console errors.
+target with `pickAttackTarget`; if a target: `applyHit` with
+`swingDamage(inv, groovyMode).damage`, swing arc FX toward the click
+(3–4 line segments, ~100 ms), zombie hit flash (tint + revert), noise
+pulse (radius 6) fed to the AI so neighbors investigate, and on death →
+0.5 s `fadeOut` then `remove` from the zombies array + kill counter. Casual
+mode ignores clicks. **G** toggles groovy mode (top-right indicator like
+casual; `?groovy` URL param pre-sets it). TEMP verification hooks (remove
+in C39): `?combat` (place player beside two zombies for a headless
+screenshot) — tick-based, documented in AGENTS.md. Verify: tsc; `npm test`
+green; build; headless screenshot shows swing FX / hit zombie; no console
+errors.
 
 ## Chunk 37 — Durability + break (pure + scene)
 
@@ -547,6 +563,8 @@ smoke, no console errors, hooks grep clean.
       `weapon.broke` fires once, next swing is unarmed
 - [ ] Every swing makes noise (radius 6) — other zombies investigate
 - [ ] Casual mode: attacks ignored (threat-free both ways)
+- [ ] Groovy mode (G, `?groovy` URL): weapon damage ×2 — bare hands and
+      durability unchanged
 - [ ] 0.7 s cooldown (no full-auto)
 - [ ] `first.kill` S.A.F.E. one-shot; death overlay shows kills; debug
       shows held weapon + per-zombie health
@@ -556,4 +574,5 @@ smoke, no console errors, hooks grep clean.
 
 Ranged weapons, crafting, safehouse (barricades/storage/bed), corpses/gore,
 armor, weapon selection/drag UI, audio, zombie health regen or respawn,
-weapon upgrades, zombie drops (zombies carry nothing).
+weapon upgrades, zombie drops (zombies carry nothing). Groovy mode affects
+damage only — no durability, noise, or stamina effects.

@@ -78,8 +78,10 @@ not started).
   per swing, break removes the tool + one-shot S.A.F.E. message; zombie
   health 30–60 seeded per spawn, knockback 0.5 + stagger 0.4 s on hit,
   fade-out death + kill counter; every swing makes noise (radius 6) so
-  fighting draws more zombies; casual = threat-free both ways. Next chunk:
-  **C34 — Weapon data + durability slots + held weapon** (pure + tests).
+  fighting draws more zombies; casual = threat-free both ways; groovy mode
+  (G, `?groovy`) = weapon damage ×2 (bare hands unaffected, pure form in
+  C34, toggle in C36). Next chunk: **C34 — Weapon data + durability slots
+  + held weapon** (pure + tests).
 
 ## Environment note (read before touching rendering)
 
