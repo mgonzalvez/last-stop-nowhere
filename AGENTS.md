@@ -2,8 +2,8 @@
 
 Isometric zombie survival sandbox. Phaser 3 + TypeScript + Vite, zero other deps.
 Authoritative brief: `project_plan.md`. Step sequence: `PLAN.md`
-(Milestone 1 = Chunks 1–14, Milestone 2 = Chunks 15–24 — both complete;
-Milestone 3 = Chunks 25–33, planned, not started).
+(Milestone 1 = Chunks 1–14, Milestone 2 = Chunks 15–24, Milestone 3 =
+Chunks 25–33 — all complete).
 
 ## Guardrails (follow every session)
 
@@ -16,9 +16,9 @@ Milestone 3 = Chunks 25–33, planned, not started).
    note the limitation, choose a simpler approach, and move on. Never chase edge
    cases outside the acceptance criteria (§13 of the brief).
 4. **Recognize drift.** If an action doesn't map to the next unfinished chunk in
-   PLAN.md, you are off-path. Next up is Milestone 3 — "Scavenge" (C25–C33).
-   Stay inside M3 scope: no combat/weapon use, crafting, safehouse, durability,
-   re-loot, procedural loot, or save system until a later plan exists.
+   PLAN.md, you are off-path. Milestones 1–3 are complete; the brief's later
+   phases (combat/weapon use, crafting, safehouse, durability, re-loot,
+   procedural loot, save system) are out of scope until a new M4 plan exists.
 5. **Steer back.** Start each working step by naming the current chunk. Finish its
    verify step before starting the next. After any detour, re-read PLAN.md and
    return to the first unfinished chunk.
@@ -47,19 +47,28 @@ Milestone 3 = Chunks 25–33, planned, not started).
   player is invisible to zombies — no detect/investigate/attack, indicator
   top-right); S.A.F.E. first-chase one-shot message; debug overlay lists
   per-zombie state + position. 111/111 tests green, tsc + build clean.
-- TEMP hooks (remove ALL in C33): TitleScene `?autostart` (sync start in
-  create, re-added for M3 HUD verification); GameScene `?invtest` (opens the
-  inventory overlay on start, C28); GameScene `?nearcrate` (teleports player
-  beside the yard container, C30). Keep tick-based and documented here as
-  they land.
+- TEMP verification hooks: all removed in Chunk 33 (M3 used `?autostart`,
+  `?invtest`, `?nearcrate`). If you need them again, the patterns that
+  worked (see Environment note): sync scene.start in create() for
+  transitions, update-tick-based hooks (≤ ~150 ticks) for in-scene checks,
+  and document each hook here as it lands.
 - Docs: README.md (run + controls), CHANGELOG.md (per-chunk history),
-  PLAN.md (chunk plan, M1 + M2 with acceptance checklist).
+  PLAN.md (chunk plan, M1 + M2 + M3 with acceptance checklists).
 - Pushed to github.com/mgonzalvez/last-stop-nowhere (main).
-- **Milestone 3 — "Scavenge" — PLANNED, not started** (Chunks 25–33, see
-  PLAN.md). Survival economy: hunger + stamina stats, 16-slot stackable
-  inventory with 1–8 hotbar, 6 one-shot loot containers (weighted tables by
-  location: kitchen/store/yard), consumable use, casual also freezes hunger.
-  Next chunk: **C25 — Stats: hunger + stamina** (pure `StatsSystem.ts` + tests).
+- **Milestone 3 — "Scavenge" — COMPLETE** (Chunks 25–33).
+  Hunger 100 (0.25/s decay; starvation 2 hp/s at 0) + stamina 100 (sprint
+  drains 30/s, regen 20/s, exhaustion latch with hysteresis — clears at 20);
+  16-slot stackable inventory (food 10 / medical 5 / tool 1 / resource 10)
+  with 1–8 hotbar + I overlay (world freezes); 6 one-shot loot crates
+  (3 kitchen / 2 store / 1 yard) with weighted seeded tables
+  (`mulberry32(LOOT_SEED + id)`, overflow lost, spent crates dim);
+  consumable use (soup +40 / food +30 / water +15 hunger; bandage +25 /
+  painkiller +50 health); casual (C) also freezes hunger; S.A.F.E. one-shots
+  (first.eat / first.heal / first.loot / hunger.low at 25); debug overlay
+  adds hunger/stamina + per-crate lines. 174/174 tests green, tsc + build
+  clean.
+- **Milestone 4 is not defined.** Next candidate phases per brief §8–9:
+  combat/weapon use, crafting, safehouse improvements. None planned yet.
 
 ## Environment note (read before touching rendering)
 
@@ -112,8 +121,10 @@ Layering rule: **authoritative state never derives from Phaser objects.**
 - `src/world/` — plain TS authoritative state: `MapData` (layout), `WorldMap`
   (passability, roofs; out-of-bounds reads as WALL_OUT), `IsoProjection`
   (64×32 diamonds, tileToScreen/screenToTile), `Player` (fractional tile
-  coords, health), `Zombie` (fractional tile coords, FSM state, path queue,
-  seed, 55 px/s), `Buildings` (roofed connected components + door tiles).
+  coords, health/hunger/stamina + exhaustion latch), `Zombie` (fractional
+  tile coords, FSM state, path queue, seed, 55 px/s), `Inventory` (16
+  mutable slots, stack logic), `LootContainer` (fixed crate state, looted
+  flag), `Buildings` (roofed connected components + door tiles).
 - `src/systems/` — pure, deterministic, unit-tested logic: `MovementSystem`
   (screen-relative 8-dir, normalized), `CollisionSystem` (per-axis vs
   passability, 0.25-tile footprint radius), `Pathfinding` (A*, 4-dir,
@@ -121,9 +132,16 @@ Layering rule: **authoritative state never derives from Phaser objects.**
   passability; adjacent tiles always clear), `Noise` (player noise radius
   0/5/9 by input), `Rng` (mulberry32 seeded PRNG), `ZombieAI` (5-state FSM,
   8 Hz decision accumulator, path-follow at exact px/s; decisions only on
-  decision ticks — never per-frame pathfinding), `TutorialSystem` (S.A.F.E.
-  one-shot event delivery), `DebugStats` (overlay formatting).
-- `src/data/` — content only (tutorial message catalog, 7 zombie spawn tiles).
+  decision ticks — never per-frame pathfinding), `StatsSystem` (hunger
+  decay/starvation, stamina drain/regen + latch, `applyItem`; `hungerFrozen`
+  = casual), `ItemUse` (hotbar consume: consumables only, carry-only items
+  untouched), `LootSystem` (weighted seeded rolls, `openContainerLoot` —
+  one-shot per crate, overflow lost), `TutorialSystem` (S.A.F.E. one-shot
+  event delivery), `DebugStats` (overlay formatting).
+- `src/data/` — content only: tutorial message catalog (welcome, chased,
+  eat/heal/loot, hunger.low), `items.ts` (14-item flat catalog + starting
+  items), `lootTables.ts` (weighted kitchen/store/yard), `zombieSpawns.ts`
+  (7 spawns + ZOMBIE_SEED), `lootContainerSpawns.ts` (6 crates + LOOT_SEED).
 - `src/rendering/` — `ProceduralAssets` (all textures, Graphics primitives
   only), `DepthSorting` (depth = (tileX+tileY)·10 + offset).
 - `src/game/` — the only Phaser layer: `config` (RESIZE scale), scenes
@@ -131,12 +149,14 @@ Layering rule: **authoritative state never derives from Phaser objects.**
   overlay, S.A.F.E. banner; it calls the pure modules each frame.
 
 Scene notes: GameScene.update() order = debug (F3) → casual toggle (C) →
-death check (terminal: only R) → pause (ESC/T, early return) → input +
-sprint → moveWithCollision → player sprite/depth sync → updateZombies
-(AI tick, sprite/depth sync, damage → death) → health HUD → roof fade →
-(S.A.F.E. banner is event-driven, not per-frame). Pause and death both
-freeze the world via early return; camera and debug overlay keep working
-while paused or dead.
+death check (terminal: only R) → inventory overlay (I/ESC, early return —
+world frozen) → I open → pause (ESC/T, early return) → hotbar 1–8 →
+container prompt + E open → input + sprint (gated by exhaustion latch) →
+moveWithCollision → player sprite/depth sync → updateZombies (AI tick,
+win damage → death) → tickSurvival (starvation can kill) → HUDs (health +
+survival bars) → hunger.low advisory → roof fade. (S.A.F.E. banner is
+event-driven, not per-frame.) Pause, death, and the inventory overlay all
+freeze the world via early return; camera and debug overlay keep working.
 
 ## Verification patterns that worked (headless)
 
@@ -145,6 +165,11 @@ while paused or dead.
   (76,138,70); wood (125,90,51); wall top (201,177,137); page bg (21,23,30).
 - Zombie signature: pale green head/arms (159,184,138), darkened by the
   per-seed Image tint — distinct from the player's blue jacket (63,107,138).
+- Crate signature: top diamond (138,106,63), left face (107,74,42), right
+  face (90,61,34); spent crates dim via setTint(0x555555).
+- HUD bars: health red (192,57,43), hunger orange (208,138,62), stamina
+  green (92,154,80); both survival bars turn red (192,57,43) when
+  STARVED/EXHAUSTED.
 - Key facts: headless game clock dies after ~150–170 ticks; viewport height
   < window height and varies; scene transitions must be sync in create();
   tick-based hooks fire reliably.

@@ -370,21 +370,21 @@ Full suite green; README (stats, inventory, loot, controls E/I/1–8, casual),
 CHANGELOG (M3 entries C25–C33), AGENTS.md status + survival/inventory/loot
 system notes; remove all TEMP verification hooks; final acceptance walk (below).
 
-## M3 acceptance checklist
+## M3 acceptance checklist (walked in C33)
 
-- [ ] Hunger decays; starvation drains health; eating restores it
-- [ ] Sprint drains stamina; exhaustion blocks sprint; regen re-enables
-- [ ] Inventory 16 slots, stackable, starting items present
-- [ ] I toggles the overlay; world freezes while open; hotbar 1–8 uses items
-- [ ] Eat/heal consumes + restores; empty hotbar is a no-op
-- [ ] 6 containers render in interiors; E within 1.0 tile opens one
-- [ ] Loot weighted by location (kitchen/store/yard differ), 3–5 items, once
-- [ ] Full-inventory overflow is lost (no crash, no duplication)
-- [ ] Loot deterministic under a fixed seed (unit-proven)
-- [ ] Casual: no zombie threat + no starvation
-- [ ] S.A.F.E. first-hunger / first-loot / first-heal messages; debug shows
+- [x] Hunger decays; starvation drains health; eating restores it
+- [x] Sprint drains stamina; exhaustion blocks sprint; regen re-enables
+- [x] Inventory 16 slots, stackable, starting items present
+- [x] I toggles the overlay; world freezes while open; hotbar 1–8 uses items
+- [x] Eat/heal consumes + restores; empty hotbar is a no-op
+- [x] 6 containers render in interiors; E within 1.0 tile opens one
+- [x] Loot weighted by location (kitchen/store/yard differ), 3–5 items, once
+- [x] Full-inventory overflow is lost (no crash, no duplication)
+- [x] Loot deterministic under a fixed seed (unit-proven)
+- [x] Casual: no zombie threat + no starvation
+- [x] S.A.F.E. first-hunger / first-loot / first-heal messages; debug shows
   stats + containers
-- [ ] tsc strict clean, all tests green, build clean, no console errors
+- [x] tsc strict clean, all tests green, build clean, no console errors
 
 ## Out of scope (M3)
 

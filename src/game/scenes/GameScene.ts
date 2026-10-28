@@ -158,20 +158,6 @@ export class GameScene extends Phaser.Scene {
     this.buildSurvivalBars()
     this.inventory = createInventory(STARTING_ITEMS)
     this.buildInventoryOverlay()
-
-    // TEMP verification hook (remove in C33): ?invtest opens the inventory
-    // overlay on start so a headless run can screenshot it.
-    if (window.location.search.includes('invtest')) this.toggleInventory(true)
-    // TEMP verification hook (remove in C33): ?nearcrate places the player
-    // one tile from the yard container so a headless run can screenshot the
-    // crate + [E] Search prompt.
-    if (window.location.search.includes('nearcrate')) {
-      this.player.x = 35
-      this.player.y = 24
-      const s = tileToScreen(this.player.x, this.player.y)
-      this.playerSprite.setPosition(s.x, s.y + TILE_H / 2)
-      this.playerSprite.setDepth(depthFor(this.player.x, this.player.y))
-    }
   }
 
   /** Milestone 2: spawn the fixed zombie set (wander from C18+). */
