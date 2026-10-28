@@ -24,6 +24,10 @@ export interface ZombieState {
   path: Array<readonly [number, number]>
   /** Current wander/investigate target, if any. */
   target: [number, number] | null
+  /** Last tile the player was seen on (chase fallback). */
+  lastKnown: [number, number] | null
+  /** Seconds since the player was last visible (chase timeout). */
+  lostSightTime: number
   /** Seconds until the next state change (idle window, etc.). */
   stateTimer: number
   /** Seconds accumulated toward the next 8 Hz decision tick. */
@@ -50,6 +54,8 @@ export function createZombie(
     rng,
     path: [],
     target: null,
+    lastKnown: null,
+    lostSightTime: 0,
     // stagger the first move so zombies don't shuffle in unison
     stateTimer: 0.5 + rng() * 2,
     decisionAccum: 0,

@@ -113,6 +113,16 @@ export class GameScene extends Phaser.Scene {
     // TEMP verification hook (remove in C24): ?wanderlog logs zombie
     // state/position at fixed ticks so headless runs can prove movement.
     if (window.location.search.includes('wanderlog')) this.wanderLog = true
+    // TEMP verification hook (remove in C24): ?chasetest places zombie 0
+    // one tile from the player spawn so a headless run can prove CHASE.
+    if (window.location.search.includes('chasetest') && this.zombies.length > 0) {
+      const { z, sprite } = this.zombies[0]
+      z.x = 21
+      z.y = 24
+      const s = tileToScreen(z.x, z.y)
+      sprite.setPosition(s.x, s.y + TILE_H / 2)
+      sprite.setDepth(depthFor(z.x, z.y))
+    }
   }
 
   private logZombies(tag: string): void {

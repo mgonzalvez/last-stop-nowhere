@@ -7,6 +7,7 @@
  * seeded rng stream, so behavior is reproducible under a fixed seed.
  */
 import { findPath, type PassableFn } from './Pathfinding'
+import { losClear } from './LineOfSight'
 import { tileToScreen, screenToTile } from '../world/IsoProjection'
 import type { ZombieState } from '../world/Zombie'
 
@@ -35,6 +36,10 @@ const IDLE_MAX = 3
 const WANDER_ATTEMPTS = 8
 /** Investigate dwell once the LKP is reached (seconds). */
 const INVESTIGATE_DWELL = 3
+/** Sight: tiles within which a visible player is spotted. */
+const DETECT_RANGE = 6
+/** Seconds without LOS before a chase collapses into an investigation. */
+const CHASE_TIMEOUT = 5
 
 /**
  * Advance the zombie along its path for dt seconds. Movement is done in
@@ -121,7 +126,29 @@ function noticeNoise(
   }
 }
 
+/** C20: spot the player (range + LOS) -> chase, re-pathing each tick. */
+function noticePlayer(
+  z: ZombieState,
+  passable: PassableFn,
+  ctx: ZombieContext,
+): boolean {
+  if (ctx.casual || z.state === 'ATTACK') return false
+  const dist = Math.hypot(ctx.playerX - z.x, ctx.playerY - z.y)
+  if (dist > DETECT_RANGE) return false
+  const zt: [number, number] = [Math.round(z.x), Math.round(z.y)]
+  const pt: [number, number] = [Math.round(ctx.playerX), Math.round(ctx.playerY)]
+  if (!losClear(passable, zt, pt)) return false
+
+  z.lostSightTime = 0
+  z.lastKnown = [pt[0], pt[1]]
+  if (z.state !== 'CHASE') z.state = 'CHASE'
+  // re-path toward the player at the decision rate (never per frame)
+  if (z.x !== pt[0] || z.y !== pt[1]) repath(z, passable, pt[0], pt[1])
+  return true
+}
+
 function decide(z: ZombieState, passable: PassableFn, ctx: ZombieContext): void {
+  const visible = noticePlayer(z, passable, ctx)
   noticeNoise(z, passable, ctx)
   switch (z.state) {
     case 'IDLE':
@@ -152,8 +179,20 @@ function decide(z: ZombieState, passable: PassableFn, ctx: ZombieContext): void 
         }
       }
       break
+    case 'CHASE':
+      if (!visible) z.lostSightTime += DECISION_STEP
+      if (z.lostSightTime >= CHASE_TIMEOUT && z.lastKnown) {
+        // player is gone: check the last place they were seen
+        z.state = 'INVESTIGATE'
+        z.stateTimer = INVESTIGATE_DWELL
+        if (!repath(z, passable, z.lastKnown[0], z.lastKnown[1])) {
+          z.path = [] // already there: dwell starts now
+        }
+        z.lastKnown = null
+      }
+      break
     default:
-      break // CHASE / ATTACK arrive in C20/C21
+      break // ATTACK arrives in C21
   }
 }
 
