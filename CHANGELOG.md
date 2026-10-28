@@ -2,6 +2,39 @@
 
 All notable changes to Last Stop, Nowhere.
 
+## 0.4.0 — Milestone 4 complete: Bug Control
+
+The neighborhood is no longer in charge. Mouse-aimed melee with weapon
+durability, seeded zombie health, hit reactions, and a noise model that
+makes every swing a trade-off. One zombie is killable; a crowd still wins.
+All new systems are pure, seeded, and unit-tested.
+
+- **C39 — Tests, docs, final verification.** Removed every temporary
+  headless-verification hook (autostart/combat/brittle + the C36HOOK console
+  line). Updated README (combat, durability, groovy, controls), this
+  changelog, and AGENTS.md. Final walk: tsc clean, 210/210 tests, build
+  clean, title + game render with no console errors.
+- **C38 — Feedback + S.A.F.E.** `first.kill` one-shot advisory; death
+  overlay shows the kill count ("You accounted for N of the neighborhood's
+  7. They have since moved on."); debug overlay adds held weapon +
+  durability and per-zombie health.
+- **C37 — Durability + break.** −1 durability per swing; at 0 the tool is
+  removed, `weapon.broke` S.A.F.E. one-shot fires, and the next weapon in
+  slot order takes over (bare hands, unbreakable, as a last resort).
+- **C36 — Scene combat wiring.** Left-click swings at the clicked tile; one
+  zombie per swing (1.0-tile aim, 1.5-tile reach, closest-to-click), 0.7 s
+  cooldown; swing arc FX + hit flash; 0.25 s noise pulse (radius 6) so
+  neighbors investigate; dead zombies leave state instantly, fade as FX;
+  **G** toggles groovy mode (weapon damage ×2, `?groovy` pre-set);
+  casual = threat-free both ways.
+- **C35 — Zombie health + hit reaction.** Health 30–60 seeded per spawn id;
+  hit → 0.4 s stagger (frozen) + 0.5-tile knockback (wall-blocked) +
+  death at ≤ 0; AI skips decisions/movement/attacks while staggered.
+- **C34 — Weapon data + held weapon.** Damage/durability on the four weapon
+  items (knife 9/40, bat 14/25, hammer 20/18, crowbar 17/20); weapon slots
+  carry durability; held weapon = first weapon in slot order; groovy mode's
+  pure form (`swingDamage(inv, groovy)`, ×2 weapons only).
+
 ## 0.3.0 — Milestone 3 complete: Scavenge
 
 The survival economy is live: hunger and stamina, a 16-slot stackable

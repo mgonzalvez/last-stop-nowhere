@@ -547,24 +547,24 @@ walkthrough of the M4 acceptance checklist. README: attack/weapon section
 Verify: tsc strict, all tests green, build clean, headless title + game
 smoke, no console errors, hooks grep clean.
 
-## M4 acceptance checklist
+## M4 acceptance checklist (walked in C39)
 
-- [ ] Left-click swings toward the click; only one zombie hit per swing
+- [x] Left-click swings toward the click; only one zombie hit per swing
       (within 1.0 of click + 1.5 of player; closest-to-click wins)
-- [ ] Unarmed (5) and all 4 weapons deal their documented damage
-- [ ] Zombie health 30–60, seeded per spawn id — fixed seed reproduces it
-- [ ] Hit: knockback 0.5 tiles (blocked by walls), 0.4 s stagger, hit flash
-- [ ] Zombie at 0 hp fades out, is removed, kill counter increments
-- [ ] Weapon durability −1/swing; at 0 the weapon breaks, is removed,
+- [x] Unarmed (5) and all 4 weapons deal their documented damage
+- [x] Zombie health 30–60, seeded per spawn id — fixed seed reproduces it
+- [x] Hit: knockback 0.5 tiles (blocked by walls), 0.4 s stagger, hit flash
+- [x] Zombie at 0 hp fades out, is removed, kill counter increments
+- [x] Weapon durability −1/swing; at 0 the weapon breaks, is removed,
       `weapon.broke` fires once, next swing is unarmed
-- [ ] Every swing makes noise (radius 6) — other zombies investigate
-- [ ] Casual mode: attacks ignored (threat-free both ways)
-- [ ] Groovy mode (G, `?groovy` URL): weapon damage ×2 — bare hands and
+- [x] Every swing makes noise (radius 6) — other zombies investigate
+- [x] Casual mode: attacks ignored (threat-free both ways)
+- [x] Groovy mode (G, `?groovy` URL): weapon damage ×2 — bare hands and
       durability unchanged
-- [ ] 0.7 s cooldown (no full-auto)
-- [ ] `first.kill` S.A.F.E. one-shot; death overlay shows kills; debug
+- [x] 0.7 s cooldown (no full-auto)
+- [x] `first.kill` S.A.F.E. one-shot; death overlay shows kills; debug
       shows held weapon + per-zombie health
-- [ ] tsc strict clean, all tests green, build clean, no console errors
+- [x] tsc strict clean, all tests green, build clean, no console errors
 
 ## Out of scope (M4)
 

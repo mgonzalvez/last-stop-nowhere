@@ -78,9 +78,6 @@ export class GameScene extends Phaser.Scene {
   private swingFxS = 0
   private kills = 0
   private swingNoiseS = 0
-  /** TEMP ?combat hook state (remove in C39). */
-  private _combatHook: number | null = null
-  private _hookTick = 0
   /** Milestone 2: player health HUD + death state. */
   private dead = false
   private healthBar!: Phaser.GameObjects.Container
@@ -194,25 +191,6 @@ export class GameScene extends Phaser.Scene {
     this.buildSurvivalBars()
     this.inventory = createInventory(STARTING_ITEMS)
     this.buildInventoryOverlay()
-
-    // TEMP verification hook (remove in C39): ?combat — stand the player 1.0
-    // tile from the nearest zombie so a headless run can screenshot the
-    // combat pipeline (the swings themselves fire at ticks 25/67 in update()).
-    if (new URLSearchParams(window.location.search).has('combat')) {
-      const near = this.nearestZombieTo(this.player.x, this.player.y)
-      if (near) {
-        this.tempPlaceBeside(near.z)
-        this._combatHook = near.z.id
-      }
-    }
-    // TEMP verification hook (remove in C39): ?brittle — set the held
-    // weapon's durability to 1 so the ?combat swings break it and prove
-    // the weapon.broke message + bare-hand fallback.
-    if (new URLSearchParams(window.location.search).has('brittle')) {
-      const w = heldWeapon(this.inventory)
-      const slot = w !== null ? this.inventory[w.slot] : null
-      if (slot) slot.durability = 1
-    }
   }
 
   /** Milestone 2: spawn the fixed zombie set (wander from C18+). */
@@ -401,20 +379,6 @@ export class GameScene extends Phaser.Scene {
     if (this.swingFxS > 0) {
       this.swingFxS -= delta / 1000
       if (this.swingFxS <= 0) this.swingFx.clear()
-    }
-    // TEMP verification hook (remove in C39): ?combat re-stands the player
-    // and swings at the flagged zombie at ticks 25 and 67 (0.7 s cooldown
-    // aligns), so a headless run can capture the hit + break pipeline
-    // (pair with ?brittle to prove durability break + fallback).
-    if (this._combatHook !== null) {
-      this._hookTick += 1
-      if (this._hookTick === 25 || this._hookTick === 67) {
-        const e = this.zombies.find((x) => x.z.id === this._combatHook)
-        if (e) {
-          this.tempPlaceBeside(e.z)
-          this.doAttack(e.z.x, e.z.y)
-        }
-      }
     }
     // Milestone 3: hotbar 1-8 uses a consumable (carry-only items stay put).
     for (let i = 0; i < this.hotbarKeys.length; i++) {
@@ -608,15 +572,6 @@ export class GameScene extends Phaser.Scene {
       this.showTutorial(deliver(this.tutorial, 'first.kill'))
       this.fadeOutZombie(target)
     }
-    // TEMP verification hook (remove in C39): deterministic pipeline evidence.
-    const slotAfter = swing.slot !== null ? this.inventory[swing.slot] : null
-    console.log(
-      'C36HOOK swing -> z' + target.id + ' dmg=' + swing.damage +
-        ' dead=' + r.dead + ' groovy=' + this.groovy +
-        (cost?.broken
-          ? ' BROKEN'
-          : ' dur=' + (slotAfter?.durability ?? 'unarmed')),
-    )
   }
 
   /** M4: short arc of line segments from the player toward the click. */
@@ -656,29 +611,7 @@ export class GameScene extends Phaser.Scene {
     })
   }
 
-  /** TEMP (remove in C39): stand the player 1 tile from a zombie on
-   *  passable ground. */
-  private tempPlaceBeside(z: ZombieState): void {
-    for (const [dx, dy] of [
-      [1, 0],
-      [0, 1],
-      [-1, 0],
-      [0, -1],
-    ] as const) {
-      const px = Math.round(z.x + dx)
-      const py = Math.round(z.y + dy)
-      if (worldMap.isPassable(px, py)) {
-        this.player.x = px
-        this.player.y = py
-        const s = tileToScreen(px, py)
-        this.playerSprite.setPosition(s.x, s.y + TILE_H / 2)
-        this.playerSprite.setDepth(depthFor(px, py))
-        return
-      }
-    }
-  }
-
-  /** M4: nearest zombie to a tile point (used by the ?combat TEMP hook). */
+  /** M4: nearest zombie to a tile point. */
   private nearestZombieTo(
     x: number,
     y: number,

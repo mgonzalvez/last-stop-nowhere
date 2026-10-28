@@ -1,12 +1,12 @@
 # Last Stop, Nowhere
 
-An isometric zombie-survival sandbox. **Milestone 3 — "Scavenge"** is
-complete: the neighborhood is no longer quiet, and it is no longer
-stocked. Seven procedural zombies roam the streets; your stomach works
-on a clock; and six crates — three house kitchens, two in the corner
-store, one out in the yard — hold everything between staying alive and
-joining the neighborhood. Search them before you're hungry. They only
-hold so much.
+An isometric zombie-survival sandbox. **Milestone 4 — "Bug Control"** is
+complete: the neighborhood is no longer quiet, it is no longer stocked, and
+it is no longer in charge. Seven procedural zombies roam the streets on a
+seeded clock; your stomach works on its own timer; six crates hold whatever
+the neighborhood left behind; and now — reluctantly — you can swing back.
+Every swing makes noise, wears the tool down, and draws more of them.
+Combat is a last resort. S.A.F.E. insists it was always the first option.
 
 Built with Phaser 3 + TypeScript + Vite. No other dependencies. All artwork is
 procedural (drawn at boot with Phaser Graphics — no image files).
@@ -44,6 +44,13 @@ npm run build    # production build to dist/
   3–5 items (weighted by location — kitchens are food, the store is mixed,
   the yard is nails and planks) and each crate can only be searched **once**;
   the empty ones go dark. If your inventory is full, the excess is lost.
+- **Attack**: **left-click** a zombie to swing at it (one zombie per swing,
+  short reach, 0.7 s between swings). You hit with the first weapon in your
+  inventory — the kitchen knife you started with, or whatever you found. No
+  weapon? Bare hands: weak, but they never break.
+- **Durability**: every swing wears the tool down (−1). When it hits 0 the
+  tool breaks, leaves your inventory, and S.A.F.E. offers its thoughts.
+  The next weapon in your slots takes over automatically.
 - **Inventory**: **I** opens the 16-slot overlay (the world freezes while it's
   open; **I** or **ESC** closes it). The first eight slots are the hotbar:
   **1–8** uses that slot. Food and medical items are consumed; tools and
@@ -51,6 +58,9 @@ npm run build    # production build to dist/
 - **Casual mode**: **C** toggles threat-free wandering. Zombies keep
   wandering as ambience but never hear, see, or attack you, and your hunger
   freezes. For when you just want to look at the neighborhood.
+- **Groovy mode**: **G** toggles weapon damage ×2 — the bad-trip setting,
+  named for the only word that ever really worked on a dead thing. Bare
+  hands are exempt (they were never weapons). Nothing else changes.
 - **Camera**: follows the player, clamped to the map; **mouse wheel** zooms
   (0.5×–2×).
 - **Pause**: **ESC** pauses (overlay with Resume/Restart); **ESC** again
@@ -59,8 +69,9 @@ npm run build    # production build to dist/
   advisory messages. S.A.F.E. will let you know, cheerfully, when you are
   being followed.
 - **Debug overlay**: **F3** shows FPS, player tile/world coordinates, entity
-  count, renderer mode, hunger/stamina, every zombie's FSM state + position,
-  and every crate's location + looted status.
+  count, renderer mode, hunger/stamina, the held weapon (+ durability),
+  every zombie's FSM state + position + health, and every crate's location
+  + looted status.
 
 ## How the zombies work
 
@@ -80,7 +91,23 @@ Loot rolls are weighted per location and run on the same seeded RNG as the
 zombies, so a fixed seed reproduces the exact same crates — down to the last
 bottle of water.
 
-## What's in Milestones 1 + 2 + 3
+## How combat works
+
+Zombies have 30–60 health (seeded per spawn — the same seed that reproduces
+the neighborhood reproduces the shufflers, down to how many hits each one
+takes). A hit staggers them for 0.4 s and knocks them back half a tile; at
+zero health they fade out and stop being a problem. A single zombie is
+killable. That is the entire design budget.
+
+Swings come from the first weapon in your inventory, in this order of
+damage: hammer 20, crowbar 17, baseball bat 14, kitchen knife 9, bare hands
+5. Durability is 18, 20, 25, and 40 hits respectively — a hammer is a bad
+deal that ends quickly, a knife is a good deal that ends slowly. Every
+swing also makes noise (6 tiles), so the moment you start whacking, every
+shambler on the block knows where you are. The neighborhood does not reward
+murder. It merely bills it.
+
+## What's in Milestones 1 + 2 + 3 + 4
 
 - 48×48 isometric map: streets, sidewalks, three houses, a corner store,
   fences, trees, parked cars — all procedurally drawn.
@@ -97,6 +124,9 @@ bottle of water.
 - Survival economy: 16-slot stackable inventory with a 1–8 hotbar, consumable
   use (food/medical), and 6 one-shot loot crates with weighted, seeded, per-
   location tables — all pure and unit-tested.
+- Combat: mouse-aimed melee with weapon durability and breakage, seeded
+  zombie health, hit stagger + knockback, and a noise model that makes
+  fighting a trade-off instead of a reward — all pure and unit-tested.
 - S.A.F.E. tutorial: data-only message catalog (`src/data/tutorialMessages.ts`)
   with event-triggered, one-shot delivery and a runtime disable flag.
 
@@ -107,9 +137,9 @@ src/
 ├── main.ts                  # entry point
 ├── game/                    # Phaser: config + scenes (Boot -> Title -> Game)
 ├── world/                   # authoritative state: map, tiles, projection,
-│                            #   player, inventory, loot containers (Phaser-free)
+│                            #   player, zombies, inventory, loot containers
 ├── systems/                 # pure gameplay logic: movement, collision,
-│                            #   stats, item use, loot, tutorial (Phaser-free)
+│                            #   stats, combat, item use, loot, tutorial
 ├── rendering/               # procedural textures, depth rules
 └── data/                    # content data (tutorial messages, items, loot
                              #   tables, zombie + crate spawns)

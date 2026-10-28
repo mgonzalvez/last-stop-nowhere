@@ -3,8 +3,7 @@
 Isometric zombie survival sandbox. Phaser 3 + TypeScript + Vite, zero other deps.
 Authoritative brief: `project_plan.md`. Step sequence: `PLAN.md`
 (Milestone 1 = Chunks 1–14, Milestone 2 = Chunks 15–24, Milestone 3 =
-Chunks 25–33 — all complete; Milestone 4 = Chunks 34–39, planned,
-not started).
+Chunks 25–33, Milestone 4 = Chunks 34–39 — all complete).
 
 ## Guardrails (follow every session)
 
@@ -17,10 +16,9 @@ not started).
    note the limitation, choose a simpler approach, and move on. Never chase edge
    cases outside the acceptance criteria (§13 of the brief).
 4. **Recognize drift.** If an action doesn't map to the next unfinished chunk in
-   PLAN.md, you are off-path. Next up is Milestone 4 — "Bug Control" (C34–C39):
-   melee weapon use with durability, zombie health + hit reactions. Stay inside
-   M4 scope: no ranged weapons, crafting, safehouse, corpses/gore, weapon UI,
-   audio, or zombie drops until a later plan exists.
+   PLAN.md, you are off-path. Milestones 1–4 are complete; the brief's later
+   phases (safehouse per §9, crafting) are out of scope until a new M5 plan
+   exists.
 5. **Steer back.** Start each working step by naming the current chunk. Finish its
    verify step before starting the next. After any detour, re-read PLAN.md and
    return to the first unfinished chunk.
@@ -49,15 +47,15 @@ not started).
   player is invisible to zombies — no detect/investigate/attack, indicator
   top-right); S.A.F.E. first-chase one-shot message; debug overlay lists
   per-zombie state + position. 111/111 tests green, tsc + build clean.
-- TEMP hooks (added in C36-C37, remove ALL in C39): TitleScene `?autostart`
-  (sync start in create); GameScene `?combat` (teleports player 1.0 tile
-  from the nearest zombie; re-stands + swings at ticks 25 and 67);
-  GameScene `?brittle` (sets held weapon durability to 1 so the swings
-  prove break + fallback); one `console.log('C36HOOK ...')` line in
-  GameScene.doAttack. Keep update-tick-based and documented here.
+- TEMP verification hooks: all removed in Chunk 39 (M4 used TitleScene
+  `?autostart`, GameScene `?combat` + `?brittle`, and a `C36HOOK` console
+  line in doAttack). If you need them again, the patterns that worked (see
+  Environment note): sync scene.start in create() for transitions,
+  update-tick-based hooks (≤ ~150 ticks) for in-scene checks, console.log
+  + `--enable-logging=stderr` for transient-FX evidence, and document each
+  hook here as it lands.
 - Docs: README.md (run + controls), CHANGELOG.md (per-chunk history),
-  PLAN.md (chunk plan, M1 + M2 + M3 with acceptance checklists; M4 drafted,
-  chunks C34–C39).
+  PLAN.md (chunk plan, M1 + M2 + M3 + M4 with acceptance checklists).
 - Pushed to github.com/mgonzalvez/last-stop-nowhere (main).
 - **Milestone 3 — "Scavenge" — COMPLETE** (Chunks 25–33).
   Hunger 100 (0.25/s decay; starvation 2 hp/s at 0) + stamina 100 (sprint
@@ -71,18 +69,25 @@ not started).
   (first.eat / first.heal / first.loot / hunger.low at 25); debug overlay
   adds hunger/stamina + per-crate lines. 174/174 tests green, tsc + build
   clean.
-- **Milestone 4 — "Bug Control" — PLANNED, not started** (Chunks 34–39, see
-  PLAN.md). Combat as a desperate last resort (pillar B): left-click swings
-  at the clicked tile (1 zombie per swing, 1.5-tile reach, 0.7 s cooldown);
-  held weapon = first weapon in slot order (knife 9/40, bat 14/25, hammer
-  20/18, crowbar 17/20 durability; bare hands 5, unbreakable); −1 durability
-  per swing, break removes the tool + one-shot S.A.F.E. message; zombie
-  health 30–60 seeded per spawn, knockback 0.5 + stagger 0.4 s on hit,
-  fade-out death + kill counter; every swing makes noise (radius 6) so
-  fighting draws more zombies; casual = threat-free both ways; groovy mode
-  (G, `?groovy`) = weapon damage ×2 (bare hands unaffected, pure form in
-  C34, toggle in C36). Next chunk: **C34 — Weapon data + durability slots
-  + held weapon** (pure + tests).
+- **Milestone 4 — "Bug Control" — COMPLETE** (Chunks 34–39).
+  Combat as a desperate last resort (pillar B): left-click swings at the
+  clicked tile (1 zombie per swing, 1.0-tile aim, 1.5-tile reach,
+  closest-to-click, 0.7 s cooldown, whiff costs nothing); held weapon =
+  first weapon in slot order (knife 9/40, bat 14/25, hammer 20/18, crowbar
+  17/20 damage/durability; bare hands 5, unbreakable); −1 durability per
+  swing, break removes the tool + `weapon.broke` S.A.F.E. one-shot +
+  automatic fallback; zombie health 30–60 seeded per spawn id
+  (`mulberry32(ZOMBIE_SEED + 1000 + id)`), hit → 0.4 s stagger (frozen) +
+  0.5-tile knockback (wall-blocked) + fade-out death + kill counter;
+  every swing makes noise (NOISE_SWING 6, 0.25 s pulse) so fighting draws
+  zombies; casual = threat-free both ways; groovy mode (G, `?groovy`) =
+  weapon damage ×2 only (bare hands + durability unaffected); S.A.F.E.
+  one-shots (first.kill, weapon.broke); debug adds held weapon + durability
+  + per-zombie health; death overlay shows kills. 210/210 tests green,
+  tsc + build clean.
+- **Milestone 5 is not defined.** Next candidate phases per brief §8–9:
+  safehouse (claim a building: barricade door/window, storage, sleeping
+  area, workbench) and crafting. None planned yet.
 
 ## Environment note (read before touching rendering)
 
@@ -136,41 +141,54 @@ Layering rule: **authoritative state never derives from Phaser objects.**
   (passability, roofs; out-of-bounds reads as WALL_OUT), `IsoProjection`
   (64×32 diamonds, tileToScreen/screenToTile), `Player` (fractional tile
   coords, health/hunger/stamina + exhaustion latch), `Zombie` (fractional
-  tile coords, FSM state, path queue, seed, 55 px/s), `Inventory` (16
-  mutable slots, stack logic), `LootContainer` (fixed crate state, looted
-  flag), `Buildings` (roofed connected components + door tiles).
+  tile coords, FSM state, path queue, seed, 55 px/s, seeded health 30–60,
+  staggerS), `Inventory` (16 mutable slots, stack logic; weapon slots carry
+  durability), `LootContainer` (fixed crate state, looted flag),
+  `Buildings` (roofed connected components + door tiles).
 - `src/systems/` — pure, deterministic, unit-tested logic: `MovementSystem`
   (screen-relative 8-dir, normalized), `CollisionSystem` (per-axis vs
   passability, 0.25-tile footprint radius), `Pathfinding` (A*, 4-dir,
   512-node budget, null when unreachable), `LineOfSight` (Bresenham over
   passability; adjacent tiles always clear), `Noise` (player noise radius
-  0/5/9 by input), `Rng` (mulberry32 seeded PRNG), `ZombieAI` (5-state FSM,
-  8 Hz decision accumulator, path-follow at exact px/s; decisions only on
-  decision ticks — never per-frame pathfinding), `StatsSystem` (hunger
-  decay/starvation, stamina drain/regen + latch, `applyItem`; `hungerFrozen`
-  = casual), `ItemUse` (hotbar consume: consumables only, carry-only items
-  untouched), `LootSystem` (weighted seeded rolls, `openContainerLoot` —
-  one-shot per crate, overflow lost), `TutorialSystem` (S.A.F.E. one-shot
-  event delivery), `DebugStats` (overlay formatting).
+  0/5/9 by input; NOISE_SWING 6 for swings), `Rng` (mulberry32 seeded PRNG),
+  `ZombieAI` (5-state FSM, 8 Hz decision accumulator, path-follow at exact
+  px/s; decisions only on decision ticks — never per-frame pathfinding;
+  staggered zombies are frozen: no decisions/movement/attacks),
+  `StatsSystem` (hunger decay/starvation, stamina drain/regen + latch,
+  `applyItem`; `hungerFrozen` = casual), `CombatSystem` (heldWeapon = first
+  weapon in slot order, `swingDamage(inv, groovy)` — groovy ×2 weapons only,
+  `pickAttackTarget` click 1.0 + reach 1.5, `applyHit` stagger/knockback,
+  `applySwingCost` durability −1 + break, `zombieHealth(id)` seeded 30–60),
+  `ItemUse` (hotbar consume: consumables only, carry-only items untouched),
+  `LootSystem` (weighted seeded rolls, `openContainerLoot` — one-shot per
+  crate, overflow lost), `TutorialSystem` (S.A.F.E. one-shot event
+  delivery), `DebugStats` (overlay formatting).
 - `src/data/` — content only: tutorial message catalog (welcome, chased,
-  eat/heal/loot, hunger.low), `items.ts` (14-item flat catalog + starting
-  items), `lootTables.ts` (weighted kitchen/store/yard), `zombieSpawns.ts`
-  (7 spawns + ZOMBIE_SEED), `lootContainerSpawns.ts` (6 crates + LOOT_SEED).
+  eat/heal/loot, hunger.low, weapon.broke, first.kill), `items.ts` (14-item
+  flat catalog; weapons carry damage + maxDurability; `isWeapon` type
+  predicate), `lootTables.ts` (weighted kitchen/store/yard),
+  `zombieSpawns.ts` (7 spawns + ZOMBIE_SEED), `lootContainerSpawns.ts`
+  (6 crates + LOOT_SEED).
 - `src/rendering/` — `ProceduralAssets` (all textures, Graphics primitives
   only), `DepthSorting` (depth = (tileX+tileY)·10 + offset).
 - `src/game/` — the only Phaser layer: `config` (RESIZE scale), scenes
   Boot→Title→Game. GameScene owns sprites, camera, pause overlay, debug
   overlay, S.A.F.E. banner; it calls the pure modules each frame.
 
-Scene notes: GameScene.update() order = debug (F3) → casual toggle (C) →
-death check (terminal: only R) → inventory overlay (I/ESC, early return —
-world frozen) → I open → pause (ESC/T, early return) → hotbar 1–8 →
-container prompt + E open → input + sprint (gated by exhaustion latch) →
-moveWithCollision → player sprite/depth sync → updateZombies (AI tick,
-win damage → death) → tickSurvival (starvation can kill) → HUDs (health +
-survival bars) → hunger.low advisory → roof fade. (S.A.F.E. banner is
-event-driven, not per-frame.) Pause, death, and the inventory overlay all
-freeze the world via early return; camera and debug overlay keep working.
+Scene notes: GameScene.update() order = debug (F3) → casual toggle (C) +
+groovy toggle (G) → death check (terminal: only R) → inventory overlay
+(I/ESC, early return — world frozen) → I open → pause (ESC/T, early return)
+→ attack cooldown + swing FX countdown → hotbar 1–8 → container prompt +
+E open → input + sprint (gated by exhaustion latch) → moveWithCollision →
+player sprite/depth sync → updateZombies (swing noise pulse, AI tick,
+zombie-bite damage → death, hit-flash countdown) → tickSurvival (starvation
+can kill) → HUDs (health + survival bars) → hunger.low advisory → roof
+fade. Left-click (pointerdown) is event-driven, not per-frame: onAttackClick
+(state gates: dead/paused/inv-open/casual/cooldown) → doAttack (pick target,
+applyHit, swing cost + break, FX, death → fade FX + kill counter +
+first.kill S.A.F.E.). (S.A.F.E. banner is event-driven, not per-frame.)
+Pause, death, and the inventory overlay all freeze the world via early
+return; camera and debug overlay keep working.
 
 ## Verification patterns that worked (headless)
 
