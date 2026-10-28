@@ -1,8 +1,8 @@
 # Last Stop, Nowhere — AGENTS.md
 
 Isometric zombie survival sandbox. Phaser 3 + TypeScript + Vite, zero other deps.
-Authoritative brief: `project_plan.md` (Milestone 1 = "Walk the Neighborhood" only).
-Step sequence: `PLAN.md` (Chunks 1–14).
+Authoritative brief: `project_plan.md`. Step sequence: `PLAN.md`
+(Milestone 1 = Chunks 1–14, Milestone 2 = Chunks 15–24 — both complete).
 
 ## Guardrails (follow every session)
 
@@ -15,8 +15,10 @@ Step sequence: `PLAN.md` (Chunks 1–14).
    note the limitation, choose a simpler approach, and move on. Never chase edge
    cases outside the acceptance criteria (§13 of the brief).
 4. **Recognize drift.** If an action doesn't map to the next unfinished chunk in
-   PLAN.md, you are off-path. Scope is Milestone 1 only — no zombies, combat,
-   inventory, crafting, or procedural generation.
+   PLAN.md, you are off-path. Milestones 1 + 2 are complete and the brief defines
+   no Milestone 3 — do not start new feature work (hunger/stamina, inventory,
+   weapons, combat, safehouse, swarms, procedural generation, save system) without
+   a new chunk plan in PLAN.md first.
 5. **Steer back.** Start each working step by naming the current chunk. Finish its
    verify step before starting the next. After any detour, re-read PLAN.md and
    return to the first unfinished chunk.
@@ -33,23 +35,29 @@ Step sequence: `PLAN.md` (Chunks 1–14).
   lerp 0.12, bounds clamp, wheel zoom 0.5–2.0 via scene 'wheel' event);
   pause (ESC overlay, R restarts); S.A.F.E. tutorial foundation (data-only
   catalog, event-triggered one-shot delivery, T toggles); debug overlay
-  (F3: FPS/tile/world/objs/renderer). 58/58 tests green, tsc + build clean.
-- All temporary headless-verification URL hooks were removed in Chunk 14.
+  (F3: FPS/tile/world/objs/renderer).
+- **Milestone 2 — "Dead Stock" — COMPLETE** (Chunks 15–24).
+  7 fixed zombies (55 px/s — always outrunnable); A* pathfinding (4-dir,
+  512-node cap, null when unreachable); Bresenham LOS (walls block, doors
+  pass); noise model (still 0 / moving 5 / sprinting 9 tiles); 5-state FSM
+  IDLE/WANDER/INVESTIGATE/CHASE/ATTACK with 8 Hz decisions on seeded
+  mulberry32 (pure + deterministic, `Rng.ts`); attack = 0.4 s windup +
+  12 damage/s within 0.9 tiles; player health 100, no regen, death overlay
+  + R restart; sprint (SHIFT, 1.5× = 225 px/s, noise 9); casual mode (C:
+  player is invisible to zombies — no detect/investigate/attack, indicator
+  top-right); S.A.F.E. first-chase one-shot message; debug overlay lists
+  per-zombie state + position. 111/111 tests green, tsc + build clean.
+- All temporary headless-verification URL hooks (`?autostart`, `?wanderlog`,
+  `?chasetest`, `?deathlog`, `?sprinttest`) were removed in Chunk 24.
   If you need them again for verification, the patterns that worked (see
   Environment note): sync scene.start in create() for transitions,
   update-tick-based hooks (≤ ~150 ticks) for in-scene checks.
 - Docs: README.md (run + controls), CHANGELOG.md (per-chunk history),
-  PLAN.md (chunk plan — now includes Milestone 2).
+  PLAN.md (chunk plan, M1 + M2 with acceptance checklist).
 - Pushed to github.com/mgonzalvez/last-stop-nowhere (main).
-- **Milestone 2 — "Dead Stock"** — C15 done (zombie state, 7 fixed spawns,
-  procedural zombie texture, scene rendering with depth + per-seed tint,
-  casual mode: C key toggles threat-free flag + top-right indicator + debug
-  line; 61/61 tests, tsc/build clean, headless shows zombies).
-  Next: **C16 — A* pathfinding** (`src/systems/Pathfinding.ts`, pure,
-  4-directional, null when unreachable, step-capped).
-- TEMP hooks (remove ALL in C24): TitleScene `?autostart` (sync start in
-  create). More will be added for C18+ (movement/FSM verification) — keep
-  them tick-based and documented here as they land.
+- **Milestone 3 is not defined.** The brief's later phases (hunger/stamina,
+  inventory, safehouse, weapons, procedural gen) are explicitly out of scope
+  until a new plan exists.
 
 ## Environment note (read before touching rendering)
 
@@ -102,28 +110,39 @@ Layering rule: **authoritative state never derives from Phaser objects.**
 - `src/world/` — plain TS authoritative state: `MapData` (layout), `WorldMap`
   (passability, roofs; out-of-bounds reads as WALL_OUT), `IsoProjection`
   (64×32 diamonds, tileToScreen/screenToTile), `Player` (fractional tile
-  coords), `Buildings` (roofed connected components + door tiles).
+  coords, health), `Zombie` (fractional tile coords, FSM state, path queue,
+  seed, 55 px/s), `Buildings` (roofed connected components + door tiles).
 - `src/systems/` — pure, deterministic, unit-tested logic: `MovementSystem`
   (screen-relative 8-dir, normalized), `CollisionSystem` (per-axis vs
-  passability, 0.25-tile footprint radius), `TutorialSystem` (S.A.F.E.
+  passability, 0.25-tile footprint radius), `Pathfinding` (A*, 4-dir,
+  512-node budget, null when unreachable), `LineOfSight` (Bresenham over
+  passability; adjacent tiles always clear), `Noise` (player noise radius
+  0/5/9 by input), `Rng` (mulberry32 seeded PRNG), `ZombieAI` (5-state FSM,
+  8 Hz decision accumulator, path-follow at exact px/s; decisions only on
+  decision ticks — never per-frame pathfinding), `TutorialSystem` (S.A.F.E.
   one-shot event delivery), `DebugStats` (overlay formatting).
-- `src/data/` — content only (tutorial message catalog).
+- `src/data/` — content only (tutorial message catalog, 7 zombie spawn tiles).
 - `src/rendering/` — `ProceduralAssets` (all textures, Graphics primitives
   only), `DepthSorting` (depth = (tileX+tileY)·10 + offset).
 - `src/game/` — the only Phaser layer: `config` (RESIZE scale), scenes
   Boot→Title→Game. GameScene owns sprites, camera, pause overlay, debug
   overlay, S.A.F.E. banner; it calls the pure modules each frame.
 
-Scene notes: GameScene.update() order = debug (F3) → pause (ESC/R) → input →
-moveWithCollision → sprite/depth sync → roof fade → (S.A.F.E. banner is
-event-driven, not per-frame). Pause freezes the world via early return;
-camera and debug overlay keep working while paused.
+Scene notes: GameScene.update() order = debug (F3) → casual toggle (C) →
+death check (terminal: only R) → pause (ESC/T, early return) → input +
+sprint → moveWithCollision → player sprite/depth sync → updateZombies
+(AI tick, sprite/depth sync, damage → death) → health HUD → roof fade →
+(S.A.F.E. banner is event-driven, not per-frame). Pause and death both
+freeze the world via early return; camera and debug overlay keep working
+while paused or dead.
 
 ## Verification patterns that worked (headless)
 
 - Headless Chromium screenshots + PIL pixel analysis (see Environment note).
 - Player signature: skin (217,160,102); roof red (176,69,58); grass
   (76,138,70); wood (125,90,51); wall top (201,177,137); page bg (21,23,30).
+- Zombie signature: pale green head/arms (159,184,138), darkened by the
+  per-seed Image tint — distinct from the player's blue jacket (63,107,138).
 - Key facts: headless game clock dies after ~150–170 ticks; viewport height
   < window height and varies; scene transitions must be sync in create();
   tick-based hooks fire reliably.

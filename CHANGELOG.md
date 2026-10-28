@@ -1,8 +1,50 @@
 # Changelog
 
-All notable changes to Last Stop, Nowhere. Milestone 1 — "Walk the Neighborhood".
+All notable changes to Last Stop, Nowhere.
 
-## 0.1.0 — Milestone 1 complete
+## 0.2.0 — Milestone 2 complete: Dead Stock
+
+Seven procedural zombies now roam the neighborhood: they wander, investigate
+noises, chase on line of sight, and bite when they catch up. Player health,
+death + restart, sprint, and a casual threat-free mode. All AI is pure, seeded,
+and unit-tested (8 Hz decisions, A* pathfinding, Bresenham LOS).
+
+- **C24 — Tests, docs, final verification.** Removed every temporary
+  headless-verification URL hook (wanderlog/chasetest/deathlog/sprinttest/
+  autostart). Updated README (zombies, sprint, health, casual), this changelog,
+  and AGENTS.md. Final walk: tsc clean, 111/111 tests, build clean, title +
+  game render with no console errors.
+- **C23 — S.A.F.E. chase message + debug zombie states.** One-shot
+  `zombie.chased` advisory delivered the first time a zombie locks on; debug
+  overlay now lists every zombie's FSM state + position (`z3 CHASE @33.2,20.3`).
+- **C22 — Sprint.** **SHIFT** = 1.5× speed (225 px/s) with a 9-tile noise
+  radius. No stamina (later phase). `inputVelocity`/`movePlayer`/
+  `moveWithCollision` take an optional speed override.
+- **C21 — ATTACK + health + death.** Melee range 0.9 tiles: 0.4s windup then
+  12 damage/s until the player breaks range. Player health 100, no regen; at 0
+  the world freezes, a dim overlay + dry S.A.F.E. epitaph appears, **R**
+  restarts. Health bar HUD top-left.
+- **C20 — CHASE.** Visible within 6 tiles + Bresenham LOS -> CHASE, re-pathing
+  at the 8 Hz decision rate (never per frame). 5s without LOS collapses the
+  chase into an INVESTIGATE of the last seen tile.
+- **C19 — INVESTIGATE.** Noise within range -> path to the player's last known
+  position, 3s dwell, then give up. Refreshes the LKP while the player keeps
+  making noise. Casual mode = the player is unheard.
+- **C18 — Zombie movement + IDLE/WANDER.** Smooth per-frame path following in
+  screen space (exact px/s) + 8 Hz decisions. WANDER: seeded random target 3–8
+  tiles, A* path, arrive -> IDLE (1–3s). mulberry32 seeded PRNG.
+- **C17 — Line of sight + noise.** Bresenham LOS over the passability grid
+  (diagonals don't cut corners; walls/windows/fences/trees/cars block, doors
+  pass). Player noise: still 0, moving 5, sprinting 9 tiles.
+- **C16 — A* pathfinding.** Pure A* over a passability predicate, 4-directional,
+  512-node budget, null when unreachable. Tie-break on equal f prefers larger g
+  to keep the search narrow across open terrain.
+- **C15 — Zombie entity + art + casual mode.** `Zombie` state (fractional tile
+  coords, 55 px/s, seed), 7 fixed spawns (validated passable), pale-green
+  procedural zombie texture, per-seed tint. **C** toggles casual mode: zombies
+  never hear/see/attack, keep wandering as ambience, top-right indicator.
+
+## 0.1.0 — Milestone 1 complete: Walk the Neighborhood
 
 - **C14 — Tests, docs, final verification.** Full unit-test coverage (projection,
   inverse, bounds, collision, movement, buildings, tutorial, debug). Wrote

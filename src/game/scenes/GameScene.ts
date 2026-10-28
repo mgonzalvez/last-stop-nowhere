@@ -58,10 +58,6 @@ export class GameScene extends Phaser.Scene {
   private debugText!: Phaser.GameObjects.Text
   private debugVisible = false
   private _dbgTick = 0
-  private _tick = 0
-  private wanderLog = false
-  private deathLog = false
-  private sprintLog = false
   private pauseOverlay!: Phaser.GameObjects.Container
   private keys!: {
     W: Phaser.Input.Keyboard.Key
@@ -119,29 +115,6 @@ export class GameScene extends Phaser.Scene {
 
     this.buildCasualIndicator()
     this.buildHealthBar()
-
-    // TEMP verification hook (remove in C24): ?wanderlog logs zombie
-    // state/position at fixed ticks so headless runs can prove movement.
-    if (window.location.search.includes('wanderlog')) this.wanderLog = true
-    if (window.location.search.includes('deathlog')) this.deathLog = true
-    if (window.location.search.includes('sprintlog')) this.sprintLog = true
-    // TEMP verification hook (remove in C24): ?chasetest places zombie 0
-    // one tile from the player spawn so a headless run can prove CHASE.
-    if (window.location.search.includes('chasetest') && this.zombies.length > 0) {
-      const { z, sprite } = this.zombies[0]
-      z.x = 21
-      z.y = 24
-      const s = tileToScreen(z.x, z.y)
-      sprite.setPosition(s.x, s.y + TILE_H / 2)
-      sprite.setDepth(depthFor(z.x, z.y))
-    }
-  }
-
-  private logZombies(tag: string): void {
-    const dump = this.zombies
-      .map(({ z }) => `${z.state}@${z.x.toFixed(1)},${z.y.toFixed(1)}`)
-      .join(' ')
-    console.log(`${tag} ${dump}`)
   }
 
   /** Milestone 2: spawn the fixed zombie set (wander from C18+). */
@@ -245,36 +218,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    this._tick++
-    if (this.wanderLog && (this._tick === 5 || this._tick === 60)) {
-      this.logZombies('WANDER@' + this._tick)
-    }
-    // TEMP verification hook (remove in C24): ?deathlog weakens the player
-    // at tick 30 so one zombie hit finishes the death-flow proof.
-    if (this.deathLog) {
-      if (this._tick === 30) this.player.health = 12
-      if (this._tick >= 60 && this._tick % 20 === 0) {
-        console.log(
-          'DEATH_TEST t' + this._tick + ' hp=' + this.player.health + ' dead=' + this.dead,
-        )
-      }
-    }
-    // TEMP ?sprinttest: force right-sprint from tick 20 (remove in C24).
-    const forced =
-      this.sprintLog &&
-      this._tick >= 20 &&
-      window.location.search.includes('sprinttest')
     let input: InputState = {
-      up: forced ? false : this.keys.W.isDown || this.keys.UP.isDown,
-      down: forced ? false : this.keys.S.isDown || this.keys.DOWN.isDown,
-      left: forced ? false : this.keys.A.isDown || this.keys.LEFT.isDown,
-      right: forced ? true : this.keys.D.isDown || this.keys.RIGHT.isDown,
-    }
-    if (forced && this._tick === 20) {
-      console.log('SPRINT_TEST t20 x=' + this.player.x.toFixed(2) + ' y=' + this.player.y.toFixed(2))
-    }
-    if (forced && this._tick === 80) {
-      console.log('SPRINT_TEST t80 x=' + this.player.x.toFixed(2) + ' y=' + this.player.y.toFixed(2))
+      up: this.keys.W.isDown || this.keys.UP.isDown,
+      down: this.keys.S.isDown || this.keys.DOWN.isDown,
+      left: this.keys.A.isDown || this.keys.LEFT.isDown,
+      right: this.keys.D.isDown || this.keys.RIGHT.isDown,
     }
     // Debug overlay (F3) — works even while paused.
     if (Phaser.Input.Keyboard.JustDown(this.keys.F3)) {
@@ -307,7 +255,7 @@ export class GameScene extends Phaser.Scene {
       if (Phaser.Input.Keyboard.JustDown(this.keys.R)) this.scene.restart()
       return
     }
-    const sprinting = forced || this.keys.SHIFT.isDown
+    const sprinting = this.keys.SHIFT.isDown
     const speed = this.player.speed * (sprinting ? SPRINT_MULT : 1)
     this.player = moveWithCollision(this.player, input, worldMap, delta / 1000, speed)
     const s = tileToScreen(this.player.x, this.player.y)

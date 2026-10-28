@@ -201,19 +201,19 @@ Full suite green; README (zombies, sprint, health, death), CHANGELOG (M2
 entries C15–C24), AGENTS.md status + zombie system notes; remove all TEMP
 verification hooks; final acceptance walk (below).
 
-## M2 acceptance checklist
+## M2 acceptance checklist (walked in C24)
 
-- [ ] 7 zombies wander the neighborhood, visible, depth-correct
-- [ ] Casual mode (C): zombies never react to the player; indicator visible
-- [ ] A* paths around buildings; unreachable → no path (no crashes)
-- [ ] LOS: walls block detection; open street detects within 6 tiles
-- [ ] Noise: moving/sprinting player draws investigation; still = silent
-- [ ] CHASE re-paths at 8 Hz max; 5 s without LOS → lose interest
-- [ ] Attack within 0.9 tiles; health drains; death overlay; R restart
-- [ ] Player always outruns (sprint 225 vs 55 px/s); sprint makes noise
-- [ ] Health HUD visible; S.A.F.E. first-chase message; debug shows states
-- [ ] All AI deterministic under a fixed seed (unit-proven)
-- [ ] tsc strict clean, all tests green, build clean, no console errors
+- [x] 7 zombies wander the neighborhood, visible, depth-correct
+- [x] Casual mode (C): zombies never react to the player; indicator visible
+- [x] A* paths around buildings; unreachable → no path (no crashes)
+- [x] LOS: walls block detection; open street detects within 6 tiles
+- [x] Noise: moving/sprinting player draws investigation; still = silent
+- [x] CHASE re-paths at 8 Hz max; 5 s without LOS → lose interest
+- [x] Attack within 0.9 tiles; health drains; death overlay; R restart
+- [x] Player always outruns (sprint 225 vs 55 px/s); sprint makes noise
+- [x] Health HUD visible; S.A.F.E. first-chase message; debug shows states
+- [x] All AI deterministic under a fixed seed (unit-proven)
+- [x] tsc strict clean, all tests green, build clean, no console errors
 
 ## Out of scope (M2)
 
