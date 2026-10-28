@@ -10,8 +10,9 @@ export type TutorialEvent =
   | 'zombie.chased'
   | 'first.eat'
   | 'first.heal'
+  | 'first.loot'
 // Future events (one message each, delivered when the event fires):
-// | 'hunger.low' | 'first.loot' | 'firstBuilding' | 'firstDoor' | ...
+// | 'hunger.low' | 'firstBuilding' | 'firstDoor' | ...
 
 export interface TutorialMessage {
   id: string
@@ -49,5 +50,13 @@ export const TUTORIAL_MESSAGES: TutorialMessage[] = [
       'You are treating a wound. Excellent. Note that the bandage is, and ' +
       'has always been, a bandage. It is not a tourniquet. We cannot stress ' +
       'this enough.',
+  },
+  {
+    id: 'safe.loot',
+    event: 'first.loot',
+    text:
+      'You are searching a container. Please note that nothing in Nowhere '
+      + 'is signed, sealed, or owned. Property is, for administrative '
+      + 'reasons, a rumor.',
   },
 ]

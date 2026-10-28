@@ -16,6 +16,7 @@ import { updateZombie, type ZombieContext } from '../../systems/ZombieAI'
 import { noiseRadius, NOISE_STILL } from '../../systems/Noise'
 import { tickSurvival } from '../../systems/StatsSystem'
 import { useHotbarSlot } from '../../systems/ItemUse'
+import { openContainerLoot } from '../../systems/LootSystem'
 import { createInventory, type Inventory } from '../../world/Inventory'
 import { STARTING_ITEMS, getItem } from '../../data/items'
 import {
@@ -93,6 +94,7 @@ export class GameScene extends Phaser.Scene {
     R: Phaser.Input.Keyboard.Key
     T: Phaser.Input.Keyboard.Key
     C: Phaser.Input.Keyboard.Key
+    E: Phaser.Input.Keyboard.Key
     F3: Phaser.Input.Keyboard.Key
     ESC: Phaser.Input.Keyboard.Key
     UP: Phaser.Input.Keyboard.Key
@@ -121,7 +123,7 @@ export class GameScene extends Phaser.Scene {
     this.setupCamera()
     this.buildPauseOverlay()
     this.keys = this.input.keyboard!.addKeys(
-      'W,A,S,D,R,T,C,F3,ESC,UP,DOWN,LEFT,RIGHT,SHIFT,I',
+      'W,A,S,D,R,T,C,E,F3,ESC,UP,DOWN,LEFT,RIGHT,SHIFT,I',
     ) as unknown as GameScene['keys']
     this.hotbarKeys = [
       Phaser.Input.Keyboard.KeyCodes.ONE,
@@ -330,6 +332,11 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.updateContainerPrompt()
+    // Milestone 3: E opens the nearest unlooted container (C31).
+    if (Phaser.Input.Keyboard.JustDown(this.keys.E)) {
+      const nearest = this.nearestUnlootedContainer()
+      if (nearest) this.openContainer(nearest)
+    }
     const sprinting = this.keys.SHIFT.isDown && !this.player.sprintExhausted
     const speed = this.player.speed * (sprinting ? SPRINT_MULT : 1)
     this.player = moveWithCollision(this.player, input, worldMap, delta / 1000, speed)
@@ -370,8 +377,10 @@ export class GameScene extends Phaser.Scene {
       .setVisible(false)
   }
 
-  /** Show [E] Search over the nearest unlooted container in range. */
-  private updateContainerPrompt(): void {
+  /** Nearest unlooted container within search range, or null. */
+  private nearestUnlootedContainer():
+    | { c: LootContainerState; sprite: Phaser.GameObjects.Image }
+    | null {
     let nearest: { c: LootContainerState; sprite: Phaser.GameObjects.Image } | null = null
     let best = CONTAINER_INTERACT_RANGE
     for (const entry of this.containers) {
@@ -382,6 +391,12 @@ export class GameScene extends Phaser.Scene {
         nearest = entry
       }
     }
+    return nearest
+  }
+
+  /** Show [E] Search over the nearest unlooted container in range. */
+  private updateContainerPrompt(): void {
+    const nearest = this.nearestUnlootedContainer()
     if (!nearest) {
       this.containerPrompt.setVisible(false)
       return
@@ -391,6 +406,16 @@ export class GameScene extends Phaser.Scene {
     // above the crate, not on top of it.
     this.containerPrompt.setPosition(s.x + TILE_W / 2, s.y - 36)
     this.containerPrompt.setVisible(true)
+  }
+
+  /** Open a container: deterministic loot, overflow lost, dimmed crate. */
+  private openContainer(
+    entry: { c: LootContainerState; sprite: Phaser.GameObjects.Image },
+  ): void {
+    openContainerLoot(entry.c, this.inventory)
+    entry.sprite.setTint(0x555555) // spent crate: dimmed, never re-rolls
+    this.showTutorial(deliver(this.tutorial, 'first.loot'))
+    this.refreshInventoryOverlay()
   }
 
   /** Milestone 2: zombies wander (C18), investigate noise (C19). */
