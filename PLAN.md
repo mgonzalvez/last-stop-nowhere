@@ -474,16 +474,14 @@ unarmed untouched), constants.
 
 ## Chunk 34 — Weapon data + durability slots + held weapon (pure + tests)
 
-Add `damage`/`maxDurability` to the four weapon items + `isWeapon`. `Groovy
-mode` lands here in its pure form: `swingDamage(inv, groovy)` applies
-`GROOVY_DAMAGE_MULT = 2` to weapon damage only (unarmed stays 5). The G-key
-toggle + indicator + `?groovy` URL param are scene concerns → C36.
-
 Add `damage`/`maxDurability` to the four weapon items + `isWeapon`.
 `Inventory`: slots carry `durability` for weapons (initialized on `add`;
 other items unaffected — existing inventory tests still pass with an
 optional field). `CombatSystem.ts` (new): `heldWeapon(inv)` → first weapon
-in slot order (null if none) + `UNARMED_DAMAGE = 5`.
+in slot order (null if none), `swingDamage(inv, groovy)` → next swing's
+damage (groovy mode doubles weapon damage, unarmed stays 5; the G-key
+toggle + indicator + `?groovy` URL param are scene concerns → C36), and
+`UNARMED_DAMAGE = 5`.
 Verify: tsc; tests (held weapon picks slot 0 weapon first, skips
 non-weapons, null with none; durability initialized from item def; adding a
 second unit of the same weapon into a stack-less slot is unchanged
