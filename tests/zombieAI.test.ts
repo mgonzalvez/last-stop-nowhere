@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createZombie } from '../src/world/Zombie'
-import { updateZombie, DECISION_HZ } from '../src/systems/ZombieAI'
+import { updateZombie, DECISION_HZ, type ZombieContext } from '../src/systems/ZombieAI'
 import { worldMap, MAP_SIZE } from '../src/world/WorldMap'
 import { ZOMBIE_SPAWNS, ZOMBIE_SEED } from '../src/data/zombieSpawns'
 import { TileType } from '../src/world/TileTypes'
@@ -8,17 +8,26 @@ import { TileType } from '../src/world/TileTypes'
 const passable = (x: number, y: number) => worldMap.isPassable(x, y)
 const DT = 1 / 60
 
+/** Neutral context for wander tests: casual mode ignores the player. */
+const quiet: ZombieContext = {
+  playerX: 0,
+  playerY: 0,
+  noiseRadius: 0,
+  casual: true,
+}
+
 /** Simulate seconds of AI, returning the sampled position path. */
 function simulate(
   z: ReturnType<typeof createZombie>,
   seconds: number,
   sampleEvery = 0.25,
+  ctx: ZombieContext = quiet,
 ): Array<{ x: number; y: number; state: string }> {
   const out: Array<{ x: number; y: number; state: string }> = []
   let t = 0
   let last = 0
   while (t < seconds) {
-    updateZombie(z, passable, DT)
+    updateZombie(z, passable, DT, ctx)
     t += DT
     if (t - last >= sampleEvery) {
       last = t

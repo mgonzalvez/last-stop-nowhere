@@ -10,6 +10,19 @@ import { findPath, type PassableFn } from './Pathfinding'
 import { tileToScreen, screenToTile } from '../world/IsoProjection'
 import type { ZombieState } from '../world/Zombie'
 
+/**
+ * What the AI knows about the player this tick. The scene builds it;
+ * casual mode is expressed as an absent player (casual = true).
+ */
+export interface ZombieContext {
+  playerX: number
+  playerY: number
+  /** 0 when still or casual; 5 moving; 9 sprinting (C22). */
+  noiseRadius: number
+  /** Casual mode: zombies never detect or attack the player. */
+  casual: boolean
+}
+
 /** AI decision rate (Hz). Pathfinding happens only on these ticks. */
 export const DECISION_HZ = 8
 const DECISION_STEP = 1 / DECISION_HZ
@@ -20,6 +33,8 @@ const WANDER_MAX = 8
 const IDLE_MIN = 1
 const IDLE_MAX = 3
 const WANDER_ATTEMPTS = 8
+/** Investigate dwell once the LKP is reached (seconds). */
+const INVESTIGATE_DWELL = 3
 
 /**
  * Advance the zombie along its path for dt seconds. Movement is done in
@@ -71,7 +86,43 @@ function pickWanderTarget(z: ZombieState, passable: PassableFn): boolean {
   return false
 }
 
-function decide(z: ZombieState, passable: PassableFn): void {
+/** Path the zombie to a tile; returns false when unreachable. */
+function repath(z: ZombieState, passable: PassableFn, tx: number, ty: number): boolean {
+  const path = findPath(passable, [Math.round(z.x), Math.round(z.y)], [tx, ty])
+  if (!path || path.length === 0) return false
+  z.path = path
+  z.target = [tx, ty]
+  return true
+}
+
+/** C19: noise within range -> investigate the player's position. */
+function noticeNoise(
+  z: ZombieState,
+  passable: PassableFn,
+  ctx: ZombieContext,
+): void {
+  if (ctx.casual || ctx.noiseRadius <= 0) return
+  if (z.state === 'CHASE' || z.state === 'ATTACK') return // C20/C21 priority
+  const dist = Math.hypot(ctx.playerX - z.x, ctx.playerY - z.y)
+  if (dist > ctx.noiseRadius) return
+
+  const tx = Math.round(ctx.playerX)
+  const ty = Math.round(ctx.playerY)
+  if (z.state === 'INVESTIGATE') {
+    // fresh noise while investigating: refresh the last known position
+    if (!repath(z, passable, tx, ty)) z.stateTimer = INVESTIGATE_DWELL
+    return
+  }
+  z.state = 'INVESTIGATE'
+  z.stateTimer = INVESTIGATE_DWELL
+  if (!repath(z, passable, tx, ty)) {
+    // no path (or already on top of it): start the dwell immediately
+    z.stateTimer = INVESTIGATE_DWELL
+  }
+}
+
+function decide(z: ZombieState, passable: PassableFn, ctx: ZombieContext): void {
+  noticeNoise(z, passable, ctx)
   switch (z.state) {
     case 'IDLE':
       z.stateTimer -= DECISION_STEP
@@ -90,8 +141,19 @@ function decide(z: ZombieState, passable: PassableFn): void {
         z.stateTimer = IDLE_MIN + z.rng() * (IDLE_MAX - IDLE_MIN)
       }
       break
+    case 'INVESTIGATE':
+      if (z.path.length === 0) {
+        // arrived (or already there): dwell, then give up
+        z.stateTimer -= DECISION_STEP
+        if (z.stateTimer <= 0) {
+          z.state = 'IDLE'
+          z.target = null
+          z.stateTimer = IDLE_MIN + z.rng() * (IDLE_MAX - IDLE_MIN)
+        }
+      }
+      break
     default:
-      break // INVESTIGATE / CHASE / ATTACK arrive in C19+
+      break // CHASE / ATTACK arrive in C20/C21
   }
 }
 
@@ -103,11 +165,12 @@ export function updateZombie(
   z: ZombieState,
   passable: PassableFn,
   dt: number,
+  ctx: ZombieContext,
 ): void {
   moveAlongPath(z, dt)
   z.decisionAccum += dt
   while (z.decisionAccum >= DECISION_STEP) {
     z.decisionAccum -= DECISION_STEP
-    decide(z, passable)
+    decide(z, passable, ctx)
   }
 }

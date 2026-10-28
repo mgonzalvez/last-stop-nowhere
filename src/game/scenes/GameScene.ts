@@ -7,7 +7,8 @@ import { createZombie, type ZombieState } from '../../world/Zombie'
 import { ZOMBIE_SPAWNS, ZOMBIE_SEED } from '../../data/zombieSpawns'
 import { type InputState } from '../../systems/MovementSystem'
 import { moveWithCollision } from '../../systems/CollisionSystem'
-import { updateZombie } from '../../systems/ZombieAI'
+import { updateZombie, type ZombieContext } from '../../systems/ZombieAI'
+import { noiseRadius, NOISE_STILL } from '../../systems/Noise'
 import {
   createTutorialState,
   deliver,
@@ -262,14 +263,21 @@ export class GameScene extends Phaser.Scene {
     const s = tileToScreen(this.player.x, this.player.y)
     this.playerSprite.setPosition(s.x, s.y + TILE_H / 2)
     this.playerSprite.setDepth(depthFor(this.player.x, this.player.y))
-    this.updateZombies(delta / 1000)
+    this.updateZombies(delta / 1000, input)
     this.updateRoofs(delta)
   }
 
-  /** Milestone 2: zombies wander (C18); they react to the player from C19. */
-  private updateZombies(dt: number): void {
+  /** Milestone 2: zombies wander (C18), investigate noise (C19). */
+  private updateZombies(dt: number, input: InputState): void {
+    const moving = input.up || input.down || input.left || input.right
+    const ctx: ZombieContext = {
+      playerX: this.player.x,
+      playerY: this.player.y,
+      noiseRadius: this.casual ? NOISE_STILL : noiseRadius(moving),
+      casual: this.casual,
+    }
     for (const { z, sprite } of this.zombies) {
-      updateZombie(z, passableTile, dt)
+      updateZombie(z, passableTile, dt, ctx)
       const s = tileToScreen(z.x, z.y)
       sprite.setPosition(s.x, s.y + TILE_H / 2)
       sprite.setDepth(depthFor(z.x, z.y))
