@@ -7,6 +7,7 @@ import { createZombie, type ZombieState } from '../../world/Zombie'
 import { ZOMBIE_SPAWNS, ZOMBIE_SEED } from '../../data/zombieSpawns'
 import { type InputState } from '../../systems/MovementSystem'
 import { moveWithCollision } from '../../systems/CollisionSystem'
+import { updateZombie } from '../../systems/ZombieAI'
 import {
   createTutorialState,
   deliver,
@@ -26,6 +27,9 @@ const GROUND_COLORS: Partial<Record<TileType, [number, number]>> = {
   [TileType.WOOD_FLOOR]: [0x5e4026, 0x7d5a33],
 }
 const GRASS: [number, number] = [0x3a6d36, 0x4c8a46]
+
+/** Passability predicate for pure systems (A*, zombie AI). */
+const passableTile = (x: number, y: number) => worldMap.isPassable(x, y)
 
 // Roof fade speed (alpha units per second) -> ~0.25s full fade.
 const ROOF_FADE_PER_SEC = 4
@@ -47,6 +51,8 @@ export class GameScene extends Phaser.Scene {
   private debugText!: Phaser.GameObjects.Text
   private debugVisible = false
   private _dbgTick = 0
+  private _tick = 0
+  private wanderLog = false
   private pauseOverlay!: Phaser.GameObjects.Container
   private keys!: {
     W: Phaser.Input.Keyboard.Key
@@ -102,9 +108,20 @@ export class GameScene extends Phaser.Scene {
     this.showTutorial(deliver(this.tutorial, 'welcome'))
 
     this.buildCasualIndicator()
+
+    // TEMP verification hook (remove in C24): ?wanderlog logs zombie
+    // state/position at fixed ticks so headless runs can prove movement.
+    if (window.location.search.includes('wanderlog')) this.wanderLog = true
   }
 
-  /** Milestone 2: spawn the fixed zombie set (static until C18+). */
+  private logZombies(tag: string): void {
+    const dump = this.zombies
+      .map(({ z }) => `${z.state}@${z.x.toFixed(1)},${z.y.toFixed(1)}`)
+      .join(' ')
+    console.log(`${tag} ${dump}`)
+  }
+
+  /** Milestone 2: spawn the fixed zombie set (wander from C18+). */
   private createZombies(): void {
     const tints = [0xe8f0e0, 0xf0ece0, 0xe0e8f0] // subtle per-zombie variance
     ZOMBIE_SPAWNS.forEach(([x, y], i) => {
@@ -205,6 +222,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    this._tick++
+    if (this.wanderLog && (this._tick === 5 || this._tick === 60)) {
+      this.logZombies('WANDER@' + this._tick)
+    }
     let input: InputState = {
       up: this.keys.W.isDown || this.keys.UP.isDown,
       down: this.keys.S.isDown || this.keys.DOWN.isDown,
@@ -241,7 +262,18 @@ export class GameScene extends Phaser.Scene {
     const s = tileToScreen(this.player.x, this.player.y)
     this.playerSprite.setPosition(s.x, s.y + TILE_H / 2)
     this.playerSprite.setDepth(depthFor(this.player.x, this.player.y))
+    this.updateZombies(delta / 1000)
     this.updateRoofs(delta)
+  }
+
+  /** Milestone 2: zombies wander (C18); they react to the player from C19. */
+  private updateZombies(dt: number): void {
+    for (const { z, sprite } of this.zombies) {
+      updateZombie(z, passableTile, dt)
+      const s = tileToScreen(z.x, z.y)
+      sprite.setPosition(s.x, s.y + TILE_H / 2)
+      sprite.setDepth(depthFor(z.x, z.y))
+    }
   }
 
   /** S.A.F.E. banner: one message at a time, auto-dismisses (no spam). */
