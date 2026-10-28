@@ -3,7 +3,8 @@
 Isometric zombie survival sandbox. Phaser 3 + TypeScript + Vite, zero other deps.
 Authoritative brief: `project_plan.md`. Step sequence: `PLAN.md`
 (Milestone 1 = Chunks 1–14, Milestone 2 = Chunks 15–24, Milestone 3 =
-Chunks 25–33, Milestone 4 = Chunks 34–39 — all complete).
+Chunks 25–33, Milestone 4 = Chunks 34–39 — all complete; Milestone 5 =
+Chunks 40–47, planned, not started).
 
 ## Guardrails (follow every session)
 
@@ -16,9 +17,11 @@ Chunks 25–33, Milestone 4 = Chunks 34–39 — all complete).
    note the limitation, choose a simpler approach, and move on. Never chase edge
    cases outside the acceptance criteria (§13 of the brief).
 4. **Recognize drift.** If an action doesn't map to the next unfinished chunk in
-   PLAN.md, you are off-path. Milestones 1–4 are complete; the brief's later
-   phases (safehouse per §9, crafting) are out of scope until a new M5 plan
-   exists.
+   PLAN.md, you are off-path. Next up is Milestone 5 — "Home, Sweet Nowhere"
+   (C40–C47): claim a building + four fixed-slot improvements (workbench,
+   door barricade, storage, sleeping area). Stay inside M5 scope: no window
+   barricades, no arbitrary construction/placement, no multiple safehouses,
+   no crafting beyond the improvement recipes, no day/night.
 5. **Steer back.** Start each working step by naming the current chunk. Finish its
    verify step before starting the next. After any detour, re-read PLAN.md and
    return to the first unfinished chunk.
@@ -55,7 +58,8 @@ Chunks 25–33, Milestone 4 = Chunks 34–39 — all complete).
   + `--enable-logging=stderr` for transient-FX evidence, and document each
   hook here as it lands.
 - Docs: README.md (run + controls), CHANGELOG.md (per-chunk history),
-  PLAN.md (chunk plan, M1 + M2 + M3 + M4 with acceptance checklists).
+  PLAN.md (chunk plan, M1 + M2 + M3 + M4 with acceptance checklists; M5
+  drafted, chunks C40–C47).
 - Pushed to github.com/mgonzalvez/last-stop-nowhere (main).
 - **Milestone 3 — "Scavenge" — COMPLETE** (Chunks 25–33).
   Hunger 100 (0.25/s decay; starvation 2 hp/s at 0) + stamina 100 (sprint
@@ -85,9 +89,7 @@ Chunks 25–33, Milestone 4 = Chunks 34–39 — all complete).
   one-shots (first.kill, weapon.broke); debug adds held weapon + durability
   + per-zombie health; death overlay shows kills. 210/210 tests green,
   tsc + build clean.
-- **Milestone 5 is not defined.** Next candidate phases per brief §8–9:
-  safehouse (claim a building: barricade door/window, storage, sleeping
-  area, workbench) and crafting. None planned yet.
+- **Milestone 5 — "Home, Sweet Nowhere" — PLANNED, not started** (Chunks 40–47, see PLAN.md). Safehouse (pillar D): E at a door claims a building (one per run, no undo); four fixed-slot improvements per building — workbench (2 planks + 1 nails; gates barricades), door barricade (2P+1N; blocks zombie pathing + LOS through the claimed door, player still passes), storage (1P+1 tape; unlocks 8 extra inventory slots), sleeping area (1P+1 tape; E to sleep 2.0 s — world keeps running — ending with stamina 100 / +10 health / −15 hunger). Window barricades dropped (windows are already-impassable non-entry tiles; documented deviation). Store loot table gains a hardware corner (nails). Next chunk: **C40 — Safehouse data + claim** (pure + tests).
 
 ## Environment note (read before touching rendering)
 

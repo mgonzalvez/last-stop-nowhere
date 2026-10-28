@@ -572,3 +572,203 @@ Ranged weapons, crafting, safehouse (barricades/storage/bed), corpses/gore,
 armor, weapon selection/drag UI, audio, zombie health regen or respawn,
 weapon upgrades, zombie drops (zombies carry nothing). Groovy mode affects
 damage only — no durability, noise, or stamina effects.
+
+# Implementation Plan — Milestone 5: Home, Sweet Nowhere
+
+Source brief: `project_plan.md` §9 (Safehouse System) + pillar D (Building a
+safe place matters: players should feel attached to their safehouse).
+Milestones 1–4 are complete (C1–C39, pushed). Scope: **safehouse only** —
+claim one existing building, improve it with four fixed-slot improvements
+(workbench, door barricade, storage, sleeping area). No arbitrary
+construction: every improvement is hand-authored at a fixed tile, like the
+loot crates. No crafting beyond the improvement recipes.
+
+## Design constants (fixed for the milestone)
+
+- **Claim**: **E** at a building's door while unclaimed claims it — one
+  building per run, no undo, no re-claim (attachment, pillar D). Claim works
+  in casual too (decorating is threat-free). Four claimable buildings: the
+  three houses (doors at (9,19), (19,19), (29,19)) and the corner store
+  (door (41,26)).
+- **Slots** (fixed per building, interior corners, passability + no
+  container overlap verified by tests): each building gets one workbench,
+  one storage, one bed tile. House interiors are 4×4 (x0+1..x0+4, rows
+  15–18): workbench (x0+1,15), storage (x0+1,18), bed (x0+4,15). Store
+  interior 6×6 (x39–44, rows 27–32): workbench (39,27), storage (44,27),
+  bed (39,32). Slots are keyed by door tile in data; building id resolved
+  at runtime via `BuildingIndex.tileToBuilding`.
+- **Recipes** (consumed from inventory; "improvised" costs):
+  - Workbench: 2 planks + 1 nails — required before any barricade.
+  - Barricade (door): 2 planks + 1 nails — workbench gate.
+  - Storage container: 1 plank + 1 duct tape.
+  - Sleeping area: 1 plank + 1 duct tape.
+  Full buildout: 7 planks + 3 nails + 2 tape — deliberately more than the
+  neighborhood's expected haul (~2.7P / ~1.8N / ~1.8T), so players choose.
+- **Supply tuning**: the store gets a hardware corner — `lootTables.ts`
+  store weights become soup 12, canned food 10, water 12, bandage 12,
+  painkiller 7, crowbar 7, batteries 4, planks 14, duct tape 12, **nails
+  10** (nails are new in the store; still sums to 100). Kitchen/yard
+  tables unchanged. A deterministic supply-floor test asserts the full
+  six-container haul (fixed LOOT_SEED) covers workbench + barricade +
+  storage (5P / 2N / 1T).
+- **Barricade effect**: once built, the claimed building's door tile is
+  impassable **to zombies only** — a barricade-aware passable fn feeds
+  `updateZombie` (pathfinding AND line of sight both block); the player
+  passes freely (it's their home). Zombies already inside stay inside.
+  Zombies outside lose interest per the existing chase timeout.
+- **Storage effect**: the inventory's 8 storage slots (indices 16–23)
+  unlock. `add()` gains an `unlockedCount` parameter (default 16 — all
+  existing callers/tests unchanged); the scene passes 24 once storage is
+  built. Loot overflow fills storage before being lost. Hotbar 1–8 and the
+  16 main slots are untouched; the overlay shows a dimmed storage section
+  that lights up when built.
+- **Sleep**: **E** at a built bed → 2.0 s sleep. The world KEEPS RUNNING
+  (zombies can still attack — don't sleep in danger); the player is
+  immobile, a dark fade covers the view, no input. On completion: stamina
+  → 100 (exhaustion latch clears), +10 health (clamped), −15 hunger
+  (clamped; the cost of skipping an hour).
+- **Windows**: NOT barricaded. Windows are already-impassable wall tiles
+  that no one enters; barricading them is mechanically meaningless on this
+  map (brief §9 lists them, we document the deviation).
+- **S.A.F.E.**: four one-shots — `first.claim`, `safehouse.workbench`,
+  `safehouse.barricade`, `safehouse.slept`.
+- **Debug**: claimed door + built improvements + barricade state.
+- **Casual**: unchanged — barricades still block zombies in casual; you can
+  claim/build while threat-free.
+- **Determinism**: claim/build/sleep are pure state transitions; the
+  supply-floor test proves the tuned tables under the fixed seed.
+
+## New / changed files
+
+- `src/data/safehouseSpawns.ts` — 4 slot entries keyed by door tile
+  (workbench/storage/bed coords) + improvement metadata (id, name, recipe).
+- `src/world/Safehouse.ts` — `SafehouseState` (claimed door tile, `built`
+  set), `claim`, `canBuild` (cost + workbench gate → reason), `build`
+  (consumes from inventory, sets flag), `barricadedDoor(state)`. Pure.
+- `src/world/Inventory.ts` — 24-slot array (16 main + 8 storage), `add()`
+  gains `unlockedCount` param (default = full length), `STORAGE_SIZE = 8`.
+- `src/systems/StatsSystem.ts` — `applySleep(player)` → player (stamina 100,
+  +10 health, −15 hunger, clamped). Pure.
+- `src/data/lootTables.ts` — store weights re-tuned (hardware corner).
+- `src/game/scenes/GameScene.ts` — claim/build E routing (claim > build/sleep
+  > container), slot sprites + prompts with costs, barricade-aware zombie
+  passability, sleep state (2.0 s, world runs, movement blocked, fade),
+  storage section in the overlay, debug lines, S.A.F.E. wiring.
+- `src/rendering/ProceduralAssets.ts` — 4 new textures (workbench, bed,
+  storage chest, barricade planks) — Graphics primitives only.
+- `tutorialMessages.ts` — 4 new one-shots.
+- tests: `safehouse.test.ts`, `inventory` additions, `statsSystem` sleep
+  case, `lootSystem` supply-floor case, `zombieAI` barricade case.
+
+## Chunk 40 — Safehouse data + claim (pure + tests)
+
+`safehouseSpawns.ts`: 4 door-keyed slot entries; improvement metadata
+(names + recipe costs). `Safehouse.ts`: state + `claim` (one per run;
+second claim is a no-op) + slot lookup by door tile. `tutorialMessages.ts`:
+`first.claim` data. Verify: tsc; tests (slots are passable interior tiles,
+inside their building bounds, distinct, no overlap with container spawns;
+claim is one-shot; slot lookup by each of the 4 doors); build.
+
+## Chunk 41 — Recipes + build logic + store tuning (pure + tests)
+
+`Safehouse.canBuild` (cost payable, workbench gate for barricade, not
+already built, must be claimed) + `build` (consumes resources from
+inventory, sets the flag). `lootTables.ts`: store hardware corner (nails
+10, planks 14, tape 12; sums to 100). Supply-floor test: full seeded haul
+across all 6 containers covers workbench + barricade + storage (5P/2N/1T).
+Verify: tsc; tests (each recipe consumes exactly its cost; workbench gate;
+unclaimable/unbuilt failures; table sums to 100; supply floor under
+LOOT_SEED); build.
+
+## Chunk 42 — Scene: slots, prompts, building (render + E routing)
+
+ProceduralAssets: workbench/bed/storage/barricade textures (fillRect/
+fillTriangle only — no fillPoints). GameScene: claim prompt `[E] Claim` at
+unclaimed building doors; slot prompts inside a claimed building
+(`[E] Build: Barricade door — 2 planks, 1 nail`; dim slot sprite until
+built, lit after). E routing priority: claim (unclaimed door) > build/sleep
+(claimed slot) > container (existing). Build consumes + plays S.A.F.E.
+(first.claim / safehouse.workbench). TEMP verification hooks (remove in
+C47): `?home` — claim house 1 + seed the inventory with a full buildout so
+a headless run can screenshot built slots. Verify: tsc; tests green;
+build; headless screenshot shows claimed house with built workbench/bed/
+storage sprites; no console errors.
+
+## Chunk 43 — Barricade gameplay (zombies out, player in)
+
+Barricade-aware passable fn in GameScene (`worldMap.isPassable &&
+!barricadedDoorTile`) fed to `updateZombie`; player collision unchanged.
+S.A.F.E. `safehouse.barricade`. Verify: tsc; tests (a zombie outside the
+claimed house cannot path into it — A* null through the door; LOS blocked
+across the barricade; player passability unchanged; unbarricaded buildings
+unaffected); build; headless smoke with `?home` + built barricade (zombie
+positions stay outside the house for 60 s of simulated AI in a test).
+
+## Chunk 44 — Storage slots (16 + 8)
+
+Inventory: 24-slot array, `STORAGE_SIZE`, `add(inv, id, qty,
+unlockedCount?)` (default = inv.length — existing callers unchanged);
+scene passes 24 once storage is built; loot overflow fills storage first.
+Overlay: 8 storage slots as a dimmed second row that lights up when built
+(not hotbar-addressable). Verify: tsc; tests (add respects unlockedCount;
+overflow lost only past the unlocked count; existing M3 inventory tests
+still pass untouched; scene loot path routes to storage when built);
+build.
+
+## Chunk 45 — Sleep (rest at the bed)
+
+`StatsSystem.applySleep(player)` (stamina 100, +10 health, −15 hunger,
+clamped; exhaustion latch clears). Scene: E at built bed → 2.0 s sleep
+state — world keeps running (zombies can attack), player immobile, dark
+fade overlay, no input; completion applies the rest + `safehouse.slept`
+S.A.F.E. Verify: tsc; tests (applySleep restores/clamps correctly; latch
+clears at full stamina; sleep blocked while paused/inv-open); build.
+
+## Chunk 46 — S.A.F.E. + debug
+
+Wire the four one-shots (first.claim, safehouse.workbench,
+safehouse.barricade, safehouse.slept). Debug overlay: claimed door + built
+improvements + barricade state. Verify: tsc; tests (catalog: exactly one
+message per new event, one-shot delivery; debug formatting includes the
+safehouse lines); build.
+
+## Chunk 47 — Tests, docs, final verification
+
+Remove all TEMP hooks (`?autostart`, `?home`, any console lines added).
+Final walkthrough of the M5 acceptance checklist. README: safehouse section
+(claim, recipes table, barricade/storage/sleep mechanics, the window
+deviation), controls (E routing), "What's in M1+2+3+4+5", layout
+(Safehouse, safehouseSpawns). CHANGELOG 0.5.0 (C40–C47). AGENTS.md: M5
+status complete, architecture notes (Safehouse, inventory storage,
+barricade passability, sleep), TEMP hook note reset. Verify: tsc strict,
+all tests green, build clean, headless title + game smoke, no console
+errors, hooks grep clean.
+
+## M5 acceptance checklist
+
+- [ ] E at an unclaimed building door claims it; one claim per run, no undo
+- [ ] All 4 buildings claimable; slots verified interior + passable +
+      non-overlapping with containers
+- [ ] Workbench builds for 2P+1N; barricades require it; building consumes
+      resources and is one-shot per slot
+- [ ] Barricade blocks zombie pathing AND line of sight through the claimed
+      door; the player still passes; other buildings unaffected
+- [ ] Storage unlocks 8 extra slots; loot overflow fills them before being
+      lost; hotbar/main 16 unchanged
+- [ ] Sleep: E at built bed, 2.0 s, world keeps running, ends with stamina
+      100 / +10 health / −15 hunger (clamped)
+- [ ] Supply floor: fixed-seed haul covers workbench + barricade + storage
+- [ ] S.A.F.E. one-shots (claim, workbench, barricade, slept); debug shows
+      safehouse state
+- [ ] Casual: claim/build work while threat-free
+- [ ] No arbitrary construction: all improvements at fixed hand-authored
+      tiles
+- [ ] tsc strict clean, all tests green, build clean, no console errors
+
+## Out of scope (M5)
+
+Window barricades (windows are already-impassable, non-entry wall tiles —
+barricading them is meaningless on this map), arbitrary placement or
+construction, multiple or movable safehouses, unclaim, crafting recipes
+beyond the four improvements, day/night cycle, zombie respawn or waves,
+armor, audio.
