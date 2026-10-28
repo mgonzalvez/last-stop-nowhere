@@ -13,6 +13,7 @@ export type TutorialEvent =
   | 'first.loot'
   | 'hunger.low'
   | 'weapon.broke'
+  | 'first.kill'
 // Future events (one message each, delivered when the event fires):
 // | 'firstBuilding' | 'firstDoor' | ...
 
@@ -77,5 +78,14 @@ export const TUTORIAL_MESSAGES: TutorialMessage[] = [
       + 'tools are expected to break. Also expected, but rarely on schedule, '
       + 'is the breakage of hope. A replacement is probably inside one of '
       + 'the containers that still rattle when tapped.',
+  },
+  {
+    id: 'safe.kill',
+    event: 'first.kill',
+    text:
+      'Advisory: you have dispatched one of the neighborhood\'s residents. '
+      + 'Please note that said resident was, until recently, also one of the '
+      + 'neighborhood\'s residents. Your achievement has been forwarded to '
+      + 'the appropriate department. The department no longer exists.',
   },
 ]

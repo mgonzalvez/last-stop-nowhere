@@ -96,6 +96,55 @@ describe('debug overlay survival + container lines (C32)', () => {
   })
 })
 
+describe('debug overlay weapon + zombie health lines (C38)', () => {
+  it('shows the held weapon with durability and per-zombie hp', () => {
+    const out = formatDebugStats({
+      fps: 60,
+      tileX: 20,
+      tileY: 24,
+      worldX: -128,
+      worldY: 720,
+      entityCount: 10,
+      renderer: 'canvas',
+      heldWeapon: 'Kitchen knife (37)',
+      zombies: [{ id: 0, state: 'CHASE', x: 33.2, y: 20.3, health: 45 }],
+    })
+    const lines = out.split('\n')
+    expect(lines).toContain('weapon Kitchen knife (37)')
+    expect(lines).toContain('z0 CHASE @33.2,20.3 hp45')
+  })
+
+  it('supports bare hands and omits hp for M2-shaped callers', () => {
+    const out = formatDebugStats({
+      fps: 60,
+      tileX: 20,
+      tileY: 24,
+      worldX: -128,
+      worldY: 720,
+      entityCount: 10,
+      renderer: 'canvas',
+      heldWeapon: 'bare hands',
+      zombies: [{ id: 1, state: 'WANDER', x: 12, y: 18 }],
+    })
+    const lines = out.split('\n')
+    expect(lines).toContain('weapon bare hands')
+    expect(lines).toContain('z1 WANDER @12.0,18.0')
+  })
+
+  it('omits the weapon line when not provided (older callers unaffected)', () => {
+    const out = formatDebugStats({
+      fps: 60,
+      tileX: 20,
+      tileY: 24,
+      worldX: -128,
+      worldY: 720,
+      entityCount: 10,
+      renderer: 'canvas',
+    })
+    expect(out).not.toContain('weapon')
+  })
+})
+
 describe('S.A.F.E. catalog (M3 + M4 events)', () => {
   const events: TutorialEvent[] = [
     'first.eat',
@@ -103,6 +152,7 @@ describe('S.A.F.E. catalog (M3 + M4 events)', () => {
     'first.loot',
     'hunger.low',
     'weapon.broke',
+    'first.kill',
   ]
 
   it('has exactly one message per event with non-empty text', () => {

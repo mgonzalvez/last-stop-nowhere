@@ -604,6 +604,8 @@ export class GameScene extends Phaser.Scene {
     if (entry) entry.flashS = 0.12 // hit flash (restored in updateZombies)
     if (r.dead) {
       this.kills += 1
+      // M4 C38: S.A.F.E. first-kill advisory (one-shot per session).
+      this.showTutorial(deliver(this.tutorial, 'first.kill'))
       this.fadeOutZombie(target)
     }
     // TEMP verification hook (remove in C39): deterministic pipeline evidence.
@@ -907,6 +909,23 @@ export class GameScene extends Phaser.Scene {
         },
       )
       .setOrigin(0.5)
+    // M4 C38: kill count on the death overlay.
+    const kills = this.add
+      .text(
+        mid.x,
+        mid.y + 44,
+        this.kills > 0
+          ? 'You accounted for ' + this.kills + ' of the neighborhood\'s '
+            + ZOMBIE_SPAWNS.length + '. They have since moved on.'
+          : 'You accounted for none of the neighborhood. They have since noticed.',
+        {
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          color: '#c9a0d8',
+          align: 'center',
+        },
+      )
+      .setOrigin(0.5)
     const retry = this.add
       .text(mid.x, mid.y + 70, 'R — TRY AGAIN', {
         fontFamily: 'monospace',
@@ -922,7 +941,7 @@ export class GameScene extends Phaser.Scene {
       yoyo: true,
       repeat: -1,
     })
-    this.deathOverlay = this.add.container(0, 0, [dim, title, body, retry]).setDepth(3000)
+    this.deathOverlay = this.add.container(0, 0, [dim, title, body, kills, retry]).setDepth(3000)
   }
 
   /** S.A.F.E. banner: one message at a time, auto-dismisses (no spam). */
@@ -975,6 +994,7 @@ export class GameScene extends Phaser.Scene {
           renderer:
             this.game.renderer.type === Phaser.WEBGL ? 'webgl' : 'canvas',
           casual: this.casual,
+          heldWeapon: this.heldWeaponLabel(),
           hunger: this.player.hunger,
           stamina: this.player.stamina,
           zombies: this.zombies.map(({ z }) => ({
@@ -982,6 +1002,7 @@ export class GameScene extends Phaser.Scene {
             state: z.state,
             x: z.x,
             y: z.y,
+            health: z.health,
           })),
           containers: this.containers.map(({ c }) => ({
             id: c.id,
@@ -990,6 +1011,16 @@ export class GameScene extends Phaser.Scene {
           })),
         }),
       )
+  }
+
+  /** M4 C38: debug label for the held weapon (name + durability). */
+  private heldWeaponLabel(): string {
+    const w = heldWeapon(this.inventory)
+    if (!w) return 'bare hands'
+    const slot = this.inventory[w.slot]
+    const item = getItem(w.itemId)
+    const dur = slot?.durability
+    return (item?.name ?? w.itemId) + (dur !== undefined ? ' (' + dur + ')' : '')
   }
 
   /** Hide the roof of the building the player is inside; fade the rest back. */
