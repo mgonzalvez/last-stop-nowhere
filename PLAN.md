@@ -391,3 +391,169 @@ system notes; remove all TEMP verification hooks; final acceptance walk (below).
 Combat / weapon use (tool items are carry-only), crafting, safehouse, item
 durability, container re-loot / respawn, thirst as a separate stat, procedural
 loot placement, zombie drops, save system.
+
+# Implementation Plan — Milestone 4: Bug Control
+
+Source brief: `project_plan.md` pillar B (Zombies are environmental threats —
+a single zombie should be manageable, several dangerous; avoidance is usually
+safer than direct combat), §8 (item durability for weapons), §6 (mouse
+selection/interaction + a visual indicator for the targeted interaction).
+Milestones 1–3 are complete (C1–C33, pushed). Scope: **combat only** —
+melee weapon use with durability, zombie health + hit reactions, death.
+Combat is a desperate last resort, not a power fantasy: hitting things
+makes noise, noise draws more zombies, and every swing wears the tool down.
+
+This closes the loop the first three milestones opened: M2 made zombies
+threats, M3 made them loot-adjacent (you scavenge to survive them), and M4
+gives the player the first agency *against* them. Per pillar B it must stay
+uneasy: one zombie is killable, a crowd still wins.
+
+## Design constants (fixed for the milestone)
+
+- **Attack input**: **left-click** aims at the clicked tile point. A swing
+  hits the zombie whose center is within **1.0 tile of the click** AND
+  **1.5 tiles of the player**; if several qualify, the one closest to the
+  click. One zombie per swing. No right-click, no aimed projectiles.
+- **Cooldown**: 0.7 s between swings (no full-auto).
+- **Weapon**: the *held* weapon is the first weapon found in slot order
+  (deterministic, zero UI). No weapon → **unarmed** (damage 5, no
+  durability). No drag/select UI in M4.
+- **Weapon stats** (damage / durability, added to the existing tool items):
+  kitchen knife 9/40, baseball bat 14/25, hammer 20/18, crowbar 17/20.
+  `isWeapon(item) = item.damage !== undefined` (flashlight stays a
+  non-weapon tool).
+- **Durability**: −1 per swing; at 0 the weapon is removed from its slot,
+  one-shot `weapon.broke` S.A.F.E. message, next swings fall back to
+  unarmed.
+- **Zombie health**: 30–60, seeded per spawn id
+  (`30 + floor(mulberry32(ZOMBIE_SEED + 1000 + id)() * 31)`) →
+  deterministic; knife ≈ 4–7 hits, bat ≈ 3–5, hammer ≈ 2–3.
+- **Hit reaction**: knockback 0.5 tiles away from the player (skipped if the
+  target tile is impassable), 0.4 s stagger (no decisions/movement/attacks
+  while staggered), ~120 ms white hit flash.
+- **Death**: sprite fades out over 0.5 s, then removed from authoritative
+  state. No corpses, no gore. Kill counter increments.
+- **Noise**: every swing emits a noise pulse of radius **6** at the player's
+  position (new `NOISE_SWING`) — other zombies investigate. Fighting draws
+  the dead; pillar B in one number.
+- **Casual (C)**: threat-free in both directions — attacks are ignored.
+- **S.A.F.E.**: two new one-shots — `first.kill`, `weapon.broke`.
+- **Feedback**: death overlay shows kills; debug overlay shows held weapon +
+  per-zombie health; swing FX = short arc of line segments toward the click
+  (Graphics lines are canvas-fallback safe — not fillPoints).
+- **Determinism**: health rolls, target selection, and durability are pure +
+  seeded; unit tests prove fixed-seed reproducibility.
+
+## New / changed files
+
+- `src/data/items.ts` — add optional `damage` / `maxDurability` to the four
+  weapon tool items; `isWeapon(item)` helper.
+- `src/world/Inventory.ts` — slots track `durability` for weapons (set from
+  `item.maxDurability` when the item is added).
+- `src/world/Zombie.ts` — state gains `health` (seeded in `createZombie`)
+  and `staggerS` (seconds remaining).
+- `src/systems/CombatSystem.ts` (new, pure) — `heldWeapon(inv)`,
+  `pickAttackTarget(player, zombies, clickX, clickY)`, `applyHit(zombie,
+  damage, fromX, fromY)`, `zombieHealth(id)`, `applySwingCost(inv, slot)`
+  (durability decrement + break), constants.
+- `src/systems/ZombieAI.ts` — while `staggerS > 0`: decrement, skip
+  decision/movement/attack; otherwise unchanged.
+- `src/systems/Noise.ts` — add `NOISE_SWING = 6`.
+- `src/game/scenes/GameScene.ts` — mouse → tile tracking, left-click handler,
+  0.7 s cooldown, swing arc FX, hit flash, death fade-out + removal, noise
+  pulse into the AI, casual gate, kill counter, debug lines.
+- `tutorialMessages.ts` — `first.kill`, `weapon.broke`.
+- tests: `combatSystem.test.ts` (+ ZombieAI stagger cases, Inventory
+  durability cases).
+
+## Chunk 34 — Weapon data + durability slots + held weapon (pure + tests)
+
+Add `damage`/`maxDurability` to the four weapon items + `isWeapon`.
+`Inventory`: slots carry `durability` for weapons (initialized on `add`;
+other items unaffected — existing inventory tests still pass with an
+optional field). `CombatSystem.ts` (new): `heldWeapon(inv)` → first weapon
+in slot order (null if none) + `UNARMED_DAMAGE = 5`. Verify: tsc; tests
+(held weapon picks slot 0 weapon first, skips non-weapons, null with none;
+durability initialized from item def; adding a second unit of the same
+weapon into a stack-less slot is unchanged behavior); build.
+
+## Chunk 35 — Zombie health + hit reaction (pure + tests)
+
+`Zombie` state: `health` seeded per id, `staggerS`. `CombatSystem`:
+`zombieHealth(id)` (fixed-seed reproducible, 30–60), `pickAttackTarget`
+(click radius 1.0 + reach 1.5, closest-to-click wins, null when none),
+`applyHit` (damage → health, stagger 0.4 s, knockback 0.5 tiles from the
+player with impassable-tile check, death flag at ≤ 0). `ZombieAI`:
+staggered zombies decrement the timer and skip everything else. Verify:
+tsc; tests (health seeded + reproducible per id; target selection: in/out
+of range, multiple candidates → closest to click, none → null; hit →
+damage/stagger/knockback, blocked knockback, death at 0; AI skips
+decisions while staggered, resumes after); build.
+
+## Chunk 36 — Scene combat wiring (click attack, FX, noise, death)
+
+GameScene: track mouse tile (scene → camera → `screenToTile`), left-click
+→ if not casual, not paused/dead/inv-open and cooldown elapsed: pick
+target with `pickAttackTarget`; if a target: `applyHit`, held weapon or
+unarmed damage, swing arc FX toward the click (3–4 line segments, ~100 ms),
+zombie hit flash (tint + revert), noise pulse (radius 6) fed to the AI so
+neighbors investigate, and on death → 0.5 s `fadeOut` then `remove` from
+the zombies array + kill counter. Casual mode ignores clicks. TEMP
+verification hooks (remove in C39): `?combat` (place player beside two
+zombies for a headless screenshot) — tick-based, documented in AGENTS.md.
+Verify: tsc; `npm test` green; build; headless screenshot shows swing FX /
+hit zombie; no console errors.
+
+## Chunk 37 — Durability + break (pure + scene)
+
+`CombatSystem.applySwingCost(inv, slot)`: −1 durability per swing; at 0
+remove the item from the slot and report `broken: true`. Scene: after a
+swing with a held weapon, apply the cost; on break → one-shot
+`weapon.broke` S.A.F.E. message and fall back to unarmed next swing.
+Verify: tsc; tests (cost decrements; break removes slot + reports; unarmed
+swings never break; held weapon re-resolves to the next weapon in slot
+order after a break); build; dev play: break the knife on purpose, confirm
+message + fallback.
+
+## Chunk 38 — Feedback + S.A.F.E.
+
+`first.kill` one-shot on the first death caused by a swing (data + wiring).
+Death overlay: add a kills line ("You accounted for N of the neighborhood's
+N. They have since moved on."). Debug overlay: held weapon (or "unarmed") +
+per-zombie health appended to the zombie lines. Verify: tsc; tests
+(first.kill delivered once; debug formatting includes weapon + health);
+build.
+
+## Chunk 39 — Tests, docs, final verification
+
+Remove all TEMP hooks (`?combat`; plus any added along the way). Final
+walkthrough of the M4 acceptance checklist. README: attack/weapon section
+(durability table, noise trade-off, casual), controls (left-click),
+"What's in M1+2+3+4", layout (CombatSystem, weapon fields). CHANGELOG
+0.4.0 (C34–C39). AGENTS.md: M4 status complete, architecture notes
+(CombatSystem, zombie health/stagger, NOISE_SWING), TEMP hook note reset.
+Verify: tsc strict, all tests green, build clean, headless title + game
+smoke, no console errors, hooks grep clean.
+
+## M4 acceptance checklist
+
+- [ ] Left-click swings toward the click; only one zombie hit per swing
+      (within 1.0 of click + 1.5 of player; closest-to-click wins)
+- [ ] Unarmed (5) and all 4 weapons deal their documented damage
+- [ ] Zombie health 30–60, seeded per spawn id — fixed seed reproduces it
+- [ ] Hit: knockback 0.5 tiles (blocked by walls), 0.4 s stagger, hit flash
+- [ ] Zombie at 0 hp fades out, is removed, kill counter increments
+- [ ] Weapon durability −1/swing; at 0 the weapon breaks, is removed,
+      `weapon.broke` fires once, next swing is unarmed
+- [ ] Every swing makes noise (radius 6) — other zombies investigate
+- [ ] Casual mode: attacks ignored (threat-free both ways)
+- [ ] 0.7 s cooldown (no full-auto)
+- [ ] `first.kill` S.A.F.E. one-shot; death overlay shows kills; debug
+      shows held weapon + per-zombie health
+- [ ] tsc strict clean, all tests green, build clean, no console errors
+
+## Out of scope (M4)
+
+Ranged weapons, crafting, safehouse (barricades/storage/bed), corpses/gore,
+armor, weapon selection/drag UI, audio, zombie health regen or respawn,
+weapon upgrades, zombie drops (zombies carry nothing).

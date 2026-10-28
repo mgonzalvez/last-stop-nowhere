@@ -3,7 +3,8 @@
 Isometric zombie survival sandbox. Phaser 3 + TypeScript + Vite, zero other deps.
 Authoritative brief: `project_plan.md`. Step sequence: `PLAN.md`
 (Milestone 1 = Chunks 1–14, Milestone 2 = Chunks 15–24, Milestone 3 =
-Chunks 25–33 — all complete).
+Chunks 25–33 — all complete; Milestone 4 = Chunks 34–39, planned,
+not started).
 
 ## Guardrails (follow every session)
 
@@ -16,9 +17,10 @@ Chunks 25–33 — all complete).
    note the limitation, choose a simpler approach, and move on. Never chase edge
    cases outside the acceptance criteria (§13 of the brief).
 4. **Recognize drift.** If an action doesn't map to the next unfinished chunk in
-   PLAN.md, you are off-path. Milestones 1–3 are complete; the brief's later
-   phases (combat/weapon use, crafting, safehouse, durability, re-loot,
-   procedural loot, save system) are out of scope until a new M4 plan exists.
+   PLAN.md, you are off-path. Next up is Milestone 4 — "Bug Control" (C34–C39):
+   melee weapon use with durability, zombie health + hit reactions. Stay inside
+   M4 scope: no ranged weapons, crafting, safehouse, corpses/gore, weapon UI,
+   audio, or zombie drops until a later plan exists.
 5. **Steer back.** Start each working step by naming the current chunk. Finish its
    verify step before starting the next. After any detour, re-read PLAN.md and
    return to the first unfinished chunk.
@@ -53,7 +55,8 @@ Chunks 25–33 — all complete).
   transitions, update-tick-based hooks (≤ ~150 ticks) for in-scene checks,
   and document each hook here as it lands.
 - Docs: README.md (run + controls), CHANGELOG.md (per-chunk history),
-  PLAN.md (chunk plan, M1 + M2 + M3 with acceptance checklists).
+  PLAN.md (chunk plan, M1 + M2 + M3 with acceptance checklists; M4 drafted,
+  chunks C34–C39).
 - Pushed to github.com/mgonzalvez/last-stop-nowhere (main).
 - **Milestone 3 — "Scavenge" — COMPLETE** (Chunks 25–33).
   Hunger 100 (0.25/s decay; starvation 2 hp/s at 0) + stamina 100 (sprint
@@ -67,8 +70,16 @@ Chunks 25–33 — all complete).
   (first.eat / first.heal / first.loot / hunger.low at 25); debug overlay
   adds hunger/stamina + per-crate lines. 174/174 tests green, tsc + build
   clean.
-- **Milestone 4 is not defined.** Next candidate phases per brief §8–9:
-  combat/weapon use, crafting, safehouse improvements. None planned yet.
+- **Milestone 4 — "Bug Control" — PLANNED, not started** (Chunks 34–39, see
+  PLAN.md). Combat as a desperate last resort (pillar B): left-click swings
+  at the clicked tile (1 zombie per swing, 1.5-tile reach, 0.7 s cooldown);
+  held weapon = first weapon in slot order (knife 9/40, bat 14/25, hammer
+  20/18, crowbar 17/20 durability; bare hands 5, unbreakable); −1 durability
+  per swing, break removes the tool + one-shot S.A.F.E. message; zombie
+  health 30–60 seeded per spawn, knockback 0.5 + stagger 0.4 s on hit,
+  fade-out death + kill counter; every swing makes noise (radius 6) so
+  fighting draws more zombies; casual = threat-free both ways. Next chunk:
+  **C34 — Weapon data + durability slots + held weapon** (pure + tests).
 
 ## Environment note (read before touching rendering)
 
