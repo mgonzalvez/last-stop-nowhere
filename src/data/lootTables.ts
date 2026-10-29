@@ -19,15 +19,16 @@ export const LOOT_TABLES: Record<ContainerLocation, readonly LootEntry[]> = {
     { id: 'planks', weight: 5 },
   ],
   store: [
-    { id: 'canned_soup', weight: 15 },
-    { id: 'canned_food', weight: 15 },
-    { id: 'water', weight: 15 },
-    { id: 'bandage', weight: 15 },
-    { id: 'painkiller', weight: 10 },
-    { id: 'crowbar', weight: 8 },
-    { id: 'batteries', weight: 8 },
-    { id: 'planks', weight: 8 },
-    { id: 'duct_tape', weight: 6 },
+    { id: 'canned_soup', weight: 12 },
+    { id: 'canned_food', weight: 10 },
+    { id: 'water', weight: 12 },
+    { id: 'bandage', weight: 12 },
+    { id: 'painkiller', weight: 7 },
+    { id: 'crowbar', weight: 7 },
+    { id: 'batteries', weight: 4 },
+    { id: 'planks', weight: 14 }, // hardware corner (M5)
+    { id: 'duct_tape', weight: 12 }, // hardware corner (M5)
+    { id: 'nails', weight: 10 }, // hardware corner (M5)
   ],
   yard: [
     { id: 'nails', weight: 25 },

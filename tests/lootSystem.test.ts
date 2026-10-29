@@ -120,3 +120,31 @@ describe('openContainerLoot', () => {
     expect(slotCount(inv)).toBe(16)
   })
 })
+
+describe('store hardware corner + supply floor (C41)', () => {
+  it('every table still sums to 100', () => {
+    for (const table of Object.values(LOOT_TABLES)) {
+      const total = table.reduce((n, e) => n + e.weight, 0)
+      expect(total, table[0].id).toBe(100)
+    }
+  })
+
+  it('the store now yields nails (hardware corner)', () => {
+    const storeIds = LOOT_TABLES.store.map((e) => e.id)
+    expect(storeIds).toContain('nails')
+    expect(storeIds).toContain('planks')
+    expect(storeIds).toContain('duct_tape')
+  })
+
+  it('supply floor: full seeded haul covers workbench + barricade + storage (5P/2N/1T)', () => {
+    const total: Record<string, number> = { planks: 0, nails: 0, duct_tape: 0 }
+    for (const [i, c] of LOOT_CONTAINERS.entries()) {
+      for (const d of rollContainerLoot(c.location, i)) {
+        if (d.itemId in total) total[d.itemId] += d.qty
+      }
+    }
+    expect(total.planks, 'planks').toBeGreaterThanOrEqual(5)
+    expect(total.nails, 'nails').toBeGreaterThanOrEqual(2)
+    expect(total.duct_tape, 'duct_tape').toBeGreaterThanOrEqual(1)
+  })
+})

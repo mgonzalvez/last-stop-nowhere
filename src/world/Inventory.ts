@@ -80,3 +80,18 @@ export function slotCount(inv: Inventory): number {
 export function countItem(inv: Inventory, itemId: string): number {
   return inv.reduce((n, s) => n + (s && s.itemId === itemId ? s.qty : 0), 0)
 }
+
+/** Remove up to qty of an item across slots; returns how many removed. */
+export function removeItem(inv: Inventory, itemId: string, qty: number): number {
+  let removed = 0
+  for (let i = 0; i < inv.length && removed < qty; i++) {
+    const slot = inv[i]
+    if (slot && slot.itemId === itemId) {
+      const take = Math.min(slot.qty, qty - removed)
+      slot.qty -= take
+      removed += take
+      if (slot.qty <= 0) inv[i] = null
+    }
+  }
+  return removed
+}

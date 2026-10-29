@@ -4,9 +4,11 @@
 
 import {
   SAFEHOUSE_SLOTS,
+  IMPROVEMENTS,
   type ImprovementId,
   type SafehouseSlots,
 } from '../data/safehouseSpawns'
+import { countItem, removeItem, type Inventory } from './Inventory'
 
 export interface SafehouseState {
   /** Claimed building's door tile as "x,y"; null = unclaimed. One per run. */
@@ -77,4 +79,46 @@ export function barricadedDoor(
   if (!state.claimedDoor || !state.built.has('barricade')) return null
   const [x, y] = state.claimedDoor.split(',').map(Number)
   return [x, y]
+}
+
+export type BuildReason =
+  | 'ok'
+  | 'unclaimed'
+  | 'already-built'
+  | 'needs-workbench'
+  | 'missing-resources'
+
+/** Why (not) an improvement can be built right now (C41). */
+export function canBuild(
+  safehouse: SafehouseState,
+  inv: Inventory,
+  id: ImprovementId,
+): BuildReason {
+  if (!safehouse.claimedDoor) return 'unclaimed'
+  if (safehouse.built.has(id)) return 'already-built'
+  const def = IMPROVEMENTS[id]
+  if (def.requiresWorkbench && !safehouse.built.has('workbench')) {
+    return 'needs-workbench'
+  }
+  for (const [itemId, qty] of Object.entries(def.cost)) {
+    if (countItem(inv, itemId) < qty) return 'missing-resources'
+  }
+  return 'ok'
+}
+
+/**
+ * Build an improvement: pay its recipe from the inventory and set the flag.
+ * Refuses (and pays nothing) when canBuild !== 'ok'.
+ */
+export function build(
+  safehouse: SafehouseState,
+  inv: Inventory,
+  id: ImprovementId,
+): boolean {
+  if (canBuild(safehouse, inv, id) !== 'ok') return false
+  for (const [itemId, qty] of Object.entries(IMPROVEMENTS[id].cost)) {
+    removeItem(inv, itemId, qty)
+  }
+  safehouse.built.add(id)
+  return true
 }

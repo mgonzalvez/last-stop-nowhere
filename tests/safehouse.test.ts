@@ -7,7 +7,10 @@ import {
   safehouseSlotAt,
   slotTile,
   barricadedDoor,
+  canBuild,
+  build,
 } from '../src/world/Safehouse'
+import { createInventory, countItem as countItemCheck } from '../src/world/Inventory'
 import { worldMap } from '../src/world/WorldMap'
 import { TileType } from '../src/world/TileTypes'
 import { LOOT_CONTAINERS } from '../src/data/lootContainerSpawns'
@@ -112,3 +115,69 @@ describe('barricadedDoor (C40)', () => {
     expect(barricadedDoor(sh)).toBeNull()
   })
 })
+
+describe('canBuild + build (C41)', () => {
+  const stocked = () =>
+    createInventory([
+      ['planks', 8],
+      ['nails', 4],
+      ['duct_tape', 4],
+    ])
+
+  it('builds the workbench and pays its exact cost', () => {
+    const sh = createSafehouse()
+    claim(sh, [9, 19])
+    const inv = stocked()
+    expect(canBuild(sh, inv, 'workbench')).toBe('ok')
+    expect(build(sh, inv, 'workbench')).toBe(true)
+    expect(sh.built.has('workbench')).toBe(true)
+    expect(countItemCheck(inv, 'planks')).toBe(6)
+    expect(countItemCheck(inv, 'nails')).toBe(3)
+    expect(countItemCheck(inv, 'duct_tape')).toBe(4) // untouched
+  })
+
+  it('barricade requires the workbench first', () => {
+    const sh = createSafehouse()
+    claim(sh, [9, 19])
+    const inv = stocked()
+    expect(canBuild(sh, inv, 'barricade')).toBe('needs-workbench')
+    expect(build(sh, inv, 'barricade')).toBe(false) // refuses, pays nothing
+    expect(countItemCheck(inv, 'planks')).toBe(8)
+    build(sh, inv, 'workbench')
+    expect(canBuild(sh, inv, 'barricade')).toBe('ok')
+    expect(build(sh, inv, 'barricade')).toBe(true)
+    expect(countItemCheck(inv, 'planks')).toBe(4)
+    expect(countItemCheck(inv, 'nails')).toBe(2)
+  })
+
+  it('missing resources block the build and pay nothing', () => {
+    const sh = createSafehouse()
+    claim(sh, [9, 19])
+    const inv = createInventory([['planks', 1]])
+    expect(canBuild(sh, inv, 'storage')).toBe('missing-resources')
+    expect(build(sh, inv, 'storage')).toBe(false)
+    expect(countItemCheck(inv, 'planks')).toBe(1)
+    expect(sh.built.size).toBe(0)
+  })
+
+  it('unclaimed and already-built states are reported', () => {
+    const sh = createSafehouse()
+    const inv = stocked()
+    expect(canBuild(sh, inv, 'storage')).toBe('unclaimed')
+    claim(sh, [9, 19])
+    build(sh, inv, 'storage')
+    expect(canBuild(sh, inv, 'storage')).toBe('already-built')
+    expect(build(sh, inv, 'storage')).toBe(false)
+  })
+
+  it('every recipe pays from a fully-stocked inventory', () => {
+    for (const def of Object.values(IMPROVEMENTS)) {
+      const sh = createSafehouse()
+      claim(sh, [9, 19])
+      if (def.requiresWorkbench) sh.built.add('workbench')
+      const inv = stocked()
+      expect(canBuild(sh, inv, def.id), def.id).toBe('ok')
+    }
+  })
+})
+
