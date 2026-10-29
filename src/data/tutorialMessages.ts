@@ -14,8 +14,9 @@ export type TutorialEvent =
   | 'hunger.low'
   | 'weapon.broke'
   | 'first.kill'
+  | 'first.claim'
 // Future events (one message each, delivered when the event fires):
-// | 'firstBuilding' | 'firstDoor' | ...
+// | 'safehouse.workbench' | 'safehouse.barricade' | 'safehouse.slept' | ...
 
 export interface TutorialMessage {
   id: string
@@ -87,5 +88,14 @@ export const TUTORIAL_MESSAGES: TutorialMessage[] = [
       + 'Please note that said resident was, until recently, also one of the '
       + 'neighborhood\'s residents. Your achievement has been forwarded to '
       + 'the appropriate department. The department no longer exists.',
+  },
+  {
+    id: 'safe.claim',
+    event: 'first.claim',
+    text:
+      'Advisory: you have claimed a building. Please note that the claim is '
+      + 'administrative only. The building remains structurally a building; '
+      + 'it is now, additionally, a paperwork matter. Do not expect the '
+      + 'shufflers to respect the paperwork. We tried.',
   },
 ]
